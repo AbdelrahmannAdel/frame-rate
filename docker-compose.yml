@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: movieapp
+      POSTGRES_USER: movieapp_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - movieapp_pgdata:/var/lib/postgresql/data
+
+volumes:
+  movieapp_pgdata:
