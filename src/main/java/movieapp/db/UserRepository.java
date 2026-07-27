@@ -16,6 +16,28 @@ public class UserRepository {
         VALUES (?, ?, ?)
     """;
 
+    private static final String SELECT_USER_BY_ID = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+        WHERE id = ?
+    """;
+
+    private static final String SELECT_USER_BY_USERNAME = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+        WHERE username = ?
+    """;
+
+    private static final String SELECT_ALL_USERS = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+    """;
+
+    private static final String DELETE_USER = """
+        DELETE FROM users
+        WHERE id = ?
+    """;
+
     // inserts a user into the users table
     public User create(Connection connection, String username, String email, String passwordHash) throws SQLException {
 
@@ -44,12 +66,7 @@ public class UserRepository {
         return null;
     } // end of create()
 
-    private static final String SELECT_USER_BY_ID = """
-        SELECT id, username, email, password_hash, created_at
-        FROM users
-        WHERE id = ?
-    """;
-
+    // finds user by id
     public User findById(Connection connection, int id) throws SQLException {
 
         // prepare the statement
@@ -76,12 +93,7 @@ public class UserRepository {
         return null;
     }
 
-    private static final String SELECT_USER_BY_USERNAME = """
-        SELECT id, username, email, password_hash, created_at
-        FROM users
-        WHERE username = ?
-    """;
-
+    // finds user by username
     public User findByUsername(Connection connection, String username) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(SELECT_USER_BY_USERNAME)){
             ps.setString(1, username);
@@ -101,12 +113,7 @@ public class UserRepository {
         return null;
     } // end of findByUsername()
 
-
-    private static final String SELECT_ALL_USERS = """
-        SELECT id, username, email, password_hash, created_at
-        FROM users
-    """;
-
+    // returns a list of all users
     public List<User> findAll(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()){
             try (ResultSet resultSet = statement.executeQuery(SELECT_ALL_USERS)){
@@ -127,11 +134,7 @@ public class UserRepository {
         }
     } // end of findAll()
 
-    private static final String DELETE_USER = """
-        DELETE FROM users
-        WHERE id = ?
-    """;
-
+    // deletes a user by id
     public boolean delete(Connection connection, int id) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(DELETE_USER)){
             ps.setInt(1, id);
@@ -139,6 +142,6 @@ public class UserRepository {
 
             return result > 0;
         }
-    }
+    } // end of delete()
 
 } // end of class
