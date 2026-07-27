@@ -80,13 +80,7 @@ public class UserRepository {
                 if (resultSet.next()) {
 
                     // return new user with the data from the result set
-                    return new User(
-                            resultSet.getInt("id"),
-                            resultSet.getString("username"),
-                            resultSet.getString("email"),
-                            resultSet.getString("password_hash"),
-                            resultSet.getTimestamp("created_at").toLocalDateTime()
-                    );
+                    return mapRow(resultSet);
                 }
             }
         }
@@ -100,13 +94,7 @@ public class UserRepository {
 
             try (ResultSet resultSet = ps.executeQuery()){
                 if (resultSet.next()){
-                    return new User(
-                            resultSet.getInt("id"),
-                            resultSet.getString("username"),
-                            resultSet.getString("email"),
-                            resultSet.getString("password_hash"),
-                            resultSet.getTimestamp("created_at").toLocalDateTime()
-                    );
+                    return mapRow(resultSet);
                 }
             }
         }
@@ -119,15 +107,7 @@ public class UserRepository {
             try (ResultSet resultSet = statement.executeQuery(SELECT_ALL_USERS)){
                 List<User> usersList = new ArrayList<>();
                 while (resultSet.next()){
-                    User user = new User(
-                            resultSet.getInt("id"),
-                            resultSet.getString("username"),
-                            resultSet.getString("email"),
-                            resultSet.getString("password_hash"),
-                            resultSet.getTimestamp("created_at").toLocalDateTime()
-                    );
-
-                    usersList.add(user);
+                    usersList.add(mapRow(resultSet));
                 }
                 return usersList;
             }
@@ -143,5 +123,18 @@ public class UserRepository {
             return result > 0;
         }
     } // end of delete()
+
+    // maps the current row of a ResultSet into a User object
+    // pulled out into its own method since findById, findByUsername, and findAll
+    // all needed the exact same row-to-object logic
+    private User mapRow(ResultSet resultSet) throws SQLException {
+        return new User(
+                resultSet.getInt("id"),
+                resultSet.getString("username"),
+                resultSet.getString("email"),
+                resultSet.getString("password_hash"),
+                resultSet.getTimestamp("created_at").toLocalDateTime()
+        );
+    } // end of mapRow()
 
 } // end of class
