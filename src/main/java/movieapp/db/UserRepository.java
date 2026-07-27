@@ -6,6 +6,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
+import java.util.ArrayList;
 
 public class UserRepository {
 
@@ -15,7 +17,7 @@ public class UserRepository {
     """;
 
     // inserts a user into the users table
-    public User createUser(Connection connection, String username, String email, String passwordHash) throws SQLException {
+    public User create(Connection connection, String username, String email, String passwordHash) throws SQLException {
 
         // RETURN_GENERATED_KEY returns back auto generated values (serial id in this case)
         try (PreparedStatement ps = connection.prepareStatement(INSERT_USER, Statement.RETURN_GENERATED_KEYS)) {
@@ -40,7 +42,7 @@ public class UserRepository {
             }
         }
         return null;
-    } // end of createUser()
+    } // end of create()
 
     private static final String SELECT_USER_BY_ID = """
         SELECT id, username, email, password_hash, created_at
@@ -59,6 +61,8 @@ public class UserRepository {
             // execute the query, returns a result set
             try (ResultSet resultSet = ps.executeQuery()) {
                 if (resultSet.next()) {
+
+                    // return new user with the data from the result set
                     return new User(
                             resultSet.getInt("id"),
                             resultSet.getString("username"),
@@ -72,5 +76,69 @@ public class UserRepository {
         return null;
     }
 
+    private static final String SELECT_USER_BY_USERNAME = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+        WHERE username = ?
+    """;
+
+    public User findByUsername(Connection connection, String username) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(SELECT_USER_BY_USERNAME)){
+            ps.setString(1, username);
+
+            try (ResultSet resultSet = ps.executeQuery()){
+                if (resultSet.next()){
+                    return new User(
+                            resultSet.getInt("id"),
+                            resultSet.getString("username"),
+                            resultSet.getString("email"),
+                            resultSet.getString("password_hash"),
+                            resultSet.getTimestamp("created_at").toLocalDateTime()
+                    );
+                }
+            }
+        }
+        return null;
+    } // end of findByUsername()
+
+
+    private static final String SELECT_ALL_USERS = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+    """;
+
+    public List<User> findAll(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()){
+            try (ResultSet resultSet = statement.executeQuery(SELECT_ALL_USERS)){
+                List<User> usersList = new ArrayList<>();
+                while (resultSet.next()){
+                    User user = new User(
+                            resultSet.getInt("id"),
+                            resultSet.getString("username"),
+                            resultSet.getString("email"),
+                            resultSet.getString("password_hash"),
+                            resultSet.getTimestamp("created_at").toLocalDateTime()
+                    );
+
+                    usersList.add(user);
+                }
+                return usersList;
+            }
+        }
+    } // end of findAll()
+
+    private static final String DELETE_USER = """
+        DELETE FROM users
+        WHERE id = ?
+    """;
+
+    public boolean delete(Connection connection, int id) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(DELETE_USER)){
+            ps.setInt(1, id);
+            int result = ps.executeUpdate();    // executeUpdate() returns no of rows affected
+
+            return result > 0;
+        }
+    }
 
 } // end of class

@@ -4,11 +4,16 @@ import movieapp.db.DatabaseConfig;
 import movieapp.db.SchemaInitializer;
 import java.sql.Connection;
 import java.sql.SQLException;
+import movieapp.db.UserRepository;
+import movieapp.model.User;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
         try (Connection conn = DatabaseConfig.getConnection()) {
             SchemaInitializer.initialize(conn);
+
+
         } catch (SQLException e) {
             System.out.println("Error: " + e.getMessage());
         }
