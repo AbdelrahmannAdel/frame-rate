@@ -33,6 +33,12 @@ public class WatchlistRepository {
         WHERE id = ?
     """;
 
+    private static final String SELECT_WATCHLIST_BY_MOVIE = """
+        SELECT id, user_id, movie_id, added_at
+        FROM watchlist
+        WHERE movie_id = ?
+    """;
+
     public WatchlistEntry add(Connection connection, int userId, int movieId) throws SQLException {
         try(PreparedStatement ps = connection.prepareStatement(INSERT_WATCHLIST_ENTRY, Statement.RETURN_GENERATED_KEYS)){
             ps.setInt(1, userId);
@@ -72,7 +78,7 @@ public class WatchlistRepository {
     } // end of remove()
 
     // findById is private here since it's used only by internal methods
-    private WatchlistEntry findById(Connection connection, int id) throws SQLException {
+    public WatchlistEntry findById(Connection connection, int id) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(SELECT_WATCHLIST_ENTRY_BY_ID)) {
             ps.setInt(1, id);
 
@@ -84,6 +90,18 @@ public class WatchlistRepository {
         }
         return null;
     } // end of findById()
+
+    public List<WatchlistEntry> findByMovie(Connection connection, int movieId) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(SELECT_WATCHLIST_BY_MOVIE)) {
+            ps.setInt(1, movieId);
+            try (ResultSet resultSet = ps.executeQuery()){
+                List<WatchlistEntry> watchList = new ArrayList<>();
+                while (resultSet.next())
+                    watchList.add(mapRow(resultSet));
+                return watchList;
+            }
+        }
+    } // end of findByMovie()
 
     // maps the current row of a ResultSet into a WatchlistEntry object
     // pulled out into its own method since other methods need the exact same row-to-object logic

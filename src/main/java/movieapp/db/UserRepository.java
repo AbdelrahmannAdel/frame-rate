@@ -38,6 +38,12 @@ public class UserRepository {
         WHERE id = ?
     """;
 
+    private static final String SELECT_USER_BY_EMAIL = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+        WHERE email = ?
+    """;
+
     // inserts a user into the users table
     public User create(Connection connection, String username, String email, String passwordHash) throws SQLException {
 
@@ -100,6 +106,20 @@ public class UserRepository {
         }
         return null;
     } // end of findByUsername()
+
+    // finds user by username
+    public User findByEmail(Connection connection, String email) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(SELECT_USER_BY_EMAIL)) {
+            ps.setString(1, email);
+
+            try (ResultSet resultSet = ps.executeQuery()) {
+                if (resultSet.next()) {
+                    return mapRow(resultSet);
+                }
+            }
+        }
+        return null;
+    } // end of findByEmail()
 
     // returns a list of all users
     public List<User> findAll(Connection connection) throws SQLException {

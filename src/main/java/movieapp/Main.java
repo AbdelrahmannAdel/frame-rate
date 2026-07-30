@@ -6,6 +6,7 @@ import movieapp.db.MovieRepository;
 import movieapp.api.TmdbClient;
 import movieapp.api.TmdbMovieResult;
 import movieapp.api.TmdbMovieMapper;
+import movieapp.exception.DuplicateMovieException;
 import movieapp.model.Movie;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -26,7 +27,7 @@ public class Main {
             TmdbMovieResult firstResult = results.get(0);
             System.out.println("Importing: " + firstResult.getTitle() + " (tmdbId=" + firstResult.getTmdbId() + ")");
 
-            Movie savedMovie = TmdbMovieMapper.importMovie(conn, movieRepository, firstResult);
+            Movie savedMovie = TmdbMovieMapper.importMovie(conn, firstResult);
 
             System.out.println("Saved to database: " + savedMovie.getTitle()
                     + " (id=" + savedMovie.getId()
@@ -37,6 +38,8 @@ public class Main {
             System.out.println("Database error: " + e.getMessage());
         } catch (IOException | InterruptedException e) {
             System.out.println("TMDB API error: " + e.getMessage());
+        } catch (DuplicateMovieException e) {
+            throw new RuntimeException(e);
         }
     } // end of main
 } // end of class
