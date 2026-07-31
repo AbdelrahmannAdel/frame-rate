@@ -1,159 +1,150 @@
 package movieapp;
 
+import io.javalin.Javalin;
+import io.javalin.json.JavalinJackson;
 import movieapp.db.DatabaseConfig;
-import movieapp.db.SchemaInitializer;
-import movieapp.exception.*;
-import movieapp.model.Follow;
+import movieapp.db.WatchlistRepository;
+import movieapp.exception.NotFoundException;
 import movieapp.model.Movie;
 import movieapp.model.Review;
 import movieapp.model.User;
 import movieapp.model.WatchlistEntry;
-import movieapp.service.FollowService;
-import movieapp.service.MovieService;
-import movieapp.service.ReviewService;
-import movieapp.service.UserService;
-import movieapp.service.WatchlistService;
+import movieapp.service.*;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        try (Connection conn = DatabaseConfig.getConnection()) {
-            SchemaInitializer.initialize(conn);
 
-            UserService userService = new UserService(conn);
-            MovieService movieService = new MovieService(conn);
-            ReviewService reviewService = new ReviewService(conn);
-            WatchlistService watchlistService = new WatchlistService(conn);
-            FollowService followService = new FollowService(conn);
+        Javalin app = Javalin.create(config -> {
 
-            // ===== HAPPY PATH =====
-            System.out.println("=== HAPPY PATH ===");
+            config.jsonMapper(new JavalinJackson());
 
-            User userA = userService.registerUser("alice", "alice@example.com", "hashA");
-            System.out.println("Registered: " + userA.getUsername() + " (id=" + userA.getId() + ")");
+            config.routes.get("/", ctx ->
+                    ctx.result("Hello from Javalin!")
+            );
 
-            User userB = userService.registerUser("bob", "bob@example.com", "hashB");
-            System.out.println("Registered: " + userB.getUsername() + " (id=" + userB.getId() + ")");
+            config.routes.get("/movies/{id}", ctx -> {
 
-            Movie movie = movieService.searchAndImport("Inception");
-            System.out.println("Created movie: " + movie.getTitle() + " (id=" + movie.getId() + ", runtimeMinutes=" + movie.getRuntimeMinutes() + ")");
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            Review review = reviewService.createReview(userA.getId(), movie.getId(), 9);
-            System.out.println("Created review: rating=" + review.getRating() + " (id=" + review.getId() + ")");
+                try (Connection conn = DatabaseConfig.getConnection()) {
+                    MovieService movieService = new MovieService(conn);
+                    Movie movie = movieService.getMovieById(id);
+                    ctx.json(movie);
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of GET /movies/{id}
 
-            WatchlistEntry entry = watchlistService.addToWatchlist(userA.getId(), movie.getId());
-            System.out.println("Added to watchlist (id=" + entry.getId() + ")");
+            config.routes.get("/movies", ctx -> {
+               try (Connection conn = DatabaseConfig.getConnection()){
+                   MovieService movieService = new MovieService(conn);
+                   List<Movie> moviesLis = movieService.getAllMovies();
+                   ctx.json(moviesLis);
+               } catch (SQLException e) {
+                   ctx.status(500).result("Database error: " + e.getMessage());
+               }
+            }); // end of GET /movies
 
-            Follow follow = followService.followUser(userA.getId(), userB.getId());
-            System.out.println("Follow created: " + follow.getFollowerId() + " -> " + follow.getFolloweeId());
+            config.routes.get("/movies/{id}/reviews", ctx -> {
 
-            // ===== BUSINESS RULE VIOLATIONS =====
-            System.out.println("\n=== BUSINESS RULE VIOLATIONS (each should throw) ===");
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            try {
-                reviewService.createReview(userA.getId(), movie.getId(), 15);
-                System.out.println("FAIL: expected InvalidRatingException");
-            } catch (InvalidRatingException e) {
-                System.out.println("OK - InvalidRatingException: " + e.getMessage());
-            }
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    ReviewService reviewService = new ReviewService(conn);
+                    List<Review> reviewsList = reviewService.getReviewsByMovie(id);
+                    ctx.json(reviewsList);
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of GET /movies/{id}/reviews
 
-            try {
-                reviewService.createReview(userA.getId(), movie.getId(), 5);
-                System.out.println("FAIL: expected DuplicateReviewException");
-            } catch (DuplicateReviewException e) {
-                System.out.println("OK - DuplicateReviewException: " + e.getMessage());
-            }
+            config.routes.get("/users/{id}", ctx -> {
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            try {
-                watchlistService.addToWatchlist(userA.getId(), movie.getId());
-                System.out.println("FAIL: expected DuplicateWatchlistException");
-            } catch (DuplicateWatchlistException e) {
-                System.out.println("OK - DuplicateWatchlistException: " + e.getMessage());
-            }
+                try (Connection conn = DatabaseConfig.getConnection()) {
 
-            try {
-                followService.followUser(userA.getId(), userA.getId());
-                System.out.println("FAIL: expected SelfFollowException");
-            } catch (SelfFollowException e) {
-                System.out.println("OK - SelfFollowException: " + e.getMessage());
-            }
+                    UserService userService = new UserService(conn);
+                    ctx.json(userService.getUserById(id));
 
-            try {
-                followService.followUser(userA.getId(), userB.getId());
-                System.out.println("FAIL: expected DuplicateFollowException");
-            } catch (DuplicateFollowException e) {
-                System.out.println("OK - DuplicateFollowException: " + e.getMessage());
-            }
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of get /users/{id}
 
-            try {
-                userService.registerUser("alice", "different@example.com", "hashX");
-                System.out.println("FAIL: expected DuplicateUsernameException");
-            } catch (DuplicateUsernameException e) {
-                System.out.println("OK - DuplicateUsernameException: " + e.getMessage());
-            }
+            config.routes.get("/users/{id}/reviews", ctx -> {
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            try {
-                userService.registerUser("someoneelse", "alice@example.com", "hashX");
-                System.out.println("FAIL: expected DuplicateEmailException");
-            } catch (DuplicateEmailException e) {
-                System.out.println("OK - DuplicateEmailException: " + e.getMessage());
-            }
+                try (Connection conn = DatabaseConfig.getConnection()){
 
-            try {
-                movieService.createMovie(27205, "Inception Duplicate", 2010, null, null, null);
-                System.out.println("FAIL: expected DuplicateMovieException");
-            } catch (DuplicateMovieException e) {
-                System.out.println("OK - DuplicateMovieException: " + e.getMessage());
-            }
+                    ReviewService reviewService = new ReviewService(conn);
+                    List<Review> reviewsList = reviewService.getReviewsByUser(id);
+                    ctx.json(reviewsList);
 
-            try {
-                reviewService.deleteReview(userA.getId(), 999999);
-                System.out.println("FAIL: expected NotFoundException");
-            } catch (NotFoundException e) {
-                System.out.println("OK - NotFoundException: " + e.getMessage());
-            }
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of GET /users/{id}/reviews
 
-            try {
-                reviewService.deleteReview(userB.getId(), review.getId());
-                System.out.println("FAIL: expected UnauthorizedActionException");
-            } catch (UnauthorizedActionException e) {
-                System.out.println("OK - UnauthorizedActionException: " + e.getMessage());
-            }
+            config.routes.get("/users/{id}/watchlist", ctx -> {
 
-            try {
-                followService.unfollowUser(userB.getId(), userA.getId());
-                System.out.println("FAIL: expected NotFoundException");
-            } catch (NotFoundException e) {
-                System.out.println("OK - NotFoundException: " + e.getMessage());
-            }
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            // ===== CASCADE DELETE TESTS =====
-            System.out.println("\n=== CASCADE DELETES ===");
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    WatchlistService watchlistService = new WatchlistService(conn);
+                    List<WatchlistEntry> watchList = watchlistService.getWatchlistByUser(id);
+                    ctx.json(watchList);
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of GET /users/{id}/watchlist
 
-            boolean movieDeleted = movieService.deleteMovie(movie.getId());
-            System.out.println("Movie deleted (with its review + watchlist entry cascaded): " + movieDeleted);
+            config.routes.get("/users/{id}/following", ctx -> {
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            boolean userADeleted = userService.deleteUser(userA.getId());
-            System.out.println("User A deleted (with their follow relationships cascaded): " + userADeleted);
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    FollowService followService = new FollowService(conn);
+                    List<User> followingList = followService.getFollowing(id);
+                    ctx.json(followingList);
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of GET /users/{id}/following
 
-            boolean userBDeleted = userService.deleteUser(userB.getId());
-            System.out.println("User B deleted: " + userBDeleted);
+            config.routes.get("/users/{id}/followers", ctx -> {
+                int id = Integer.parseInt(ctx.pathParam("id"));
 
-            System.out.println("\n=== ALL TESTS COMPLETED ===");
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    FollowService followService = new FollowService(conn);
+                    List<User> followersList = followService.getFollowers(id);
+                    ctx.json(followersList);
+                } catch (NotFoundException e) {
+                    ctx.status(404).result(e.getMessage());
+                } catch (SQLException e) {
+                    ctx.status(500).result("Database error: " + e.getMessage());
+                }
+            }); // end of GET /users/{id}/followers
 
-        } catch (SQLException e) {
-            System.out.println("Database error: " + e.getMessage());
-        } catch (IOException | InterruptedException e) {
-            System.out.println("TMDB API error: " + e.getMessage());
-        } catch (InvalidRatingException | DuplicateReviewException | DuplicateWatchlistException
-                 | SelfFollowException | DuplicateFollowException | DuplicateUsernameException
-                 | DuplicateEmailException | DuplicateMovieException | NotFoundException
-                 | UnauthorizedActionException e) {
-            System.out.println("Unexpected error in happy path: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-        }
+
+
+        }); // end of javalin config
+
+        app.start(8080);
 
     } // end of main()
 } // end of class

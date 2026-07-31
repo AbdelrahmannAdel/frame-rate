@@ -1,6 +1,8 @@
 package movieapp.service;
 
+import movieapp.db.MovieRepository;
 import movieapp.db.ReviewRepository;
+import movieapp.db.UserRepository;
 import movieapp.exception.DuplicateReviewException;
 import movieapp.exception.InvalidRatingException;
 import movieapp.exception.NotFoundException;
@@ -51,5 +53,23 @@ public class ReviewService {
 
         return reviewRepository.delete(connection, id);
     } // end of deleteReview()
+
+    public List<Review> getReviewsByMovie(int movieId) throws SQLException, NotFoundException {
+        MovieRepository movieRepository = new MovieRepository();
+        if (movieRepository.findById(connection, movieId) == null)
+            throw new NotFoundException("No movie found with id: " + movieId);
+
+        ReviewRepository reviewRepository = new ReviewRepository();
+        return reviewRepository.findByMovie(connection, movieId);
+    } // end of getReviewsByMovie()
+
+    public List<Review> getReviewsByUser(int userId) throws SQLException, NotFoundException {
+        UserRepository userRepository = new UserRepository();
+        if (userRepository.findById(connection, userId) == null)
+            throw new NotFoundException("No user found with id: " + userId);
+
+        ReviewRepository reviewRepository = new ReviewRepository();
+        return reviewRepository.findByUser(connection,userId);
+    } // end of getReviewsByUser()
 
 } // end of class

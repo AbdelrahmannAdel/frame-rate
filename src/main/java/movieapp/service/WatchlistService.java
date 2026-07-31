@@ -1,5 +1,6 @@
 package movieapp.service;
 
+import movieapp.db.UserRepository;
 import movieapp.db.WatchlistRepository;
 import movieapp.exception.DuplicateWatchlistException;
 import movieapp.exception.NotFoundException;
@@ -43,5 +44,14 @@ public class WatchlistService {
 
         return watchlistRepository.remove(connection, id);
     } // end of removeFromWatchlist()
+
+    public List<WatchlistEntry> getWatchlistByUser(int userId) throws SQLException, NotFoundException {
+        UserRepository userRepository = new UserRepository();
+        if (userRepository.findById(connection, userId) == null)
+            throw new NotFoundException("No user found with id: " + userId);
+
+        WatchlistRepository watchlistRepository = new WatchlistRepository();
+        return watchlistRepository.findByUser(connection, userId);
+    } // end of getWatchlistByUser()
 
 } // end of class

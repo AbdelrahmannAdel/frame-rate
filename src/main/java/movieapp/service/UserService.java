@@ -75,4 +75,14 @@ public class UserService {
         return userRepository.delete(connection,userId);
     } // end of deleteUser()
 
+    public User getUserById(int id) throws SQLException, NotFoundException {
+        UserRepository userRepository = new UserRepository();
+        User user = userRepository.findById(connection, id);
+
+        if (user == null)
+            throw new NotFoundException("No user found with id: " + id);
+
+        return user;
+    } // end of getUserById()
+
 } // end of class

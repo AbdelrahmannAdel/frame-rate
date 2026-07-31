@@ -73,4 +73,19 @@ public class MovieService {
         return TmdbMovieMapper.importMovie(connection, firstResult, movieDetails.getRuntime());
     } // end of searchAndImport()
 
+    public Movie getMovieById(int id) throws SQLException, NotFoundException {
+        MovieRepository movieRepository = new MovieRepository();
+        Movie movie = movieRepository.findById(connection, id);
+
+        if (movie == null)
+            throw new NotFoundException("No movie found with id: " + id);
+
+        return movie;
+    } // end of getMovieById()
+
+    public List<Movie> getAllMovies() throws SQLException {
+        MovieRepository movieRepository = new MovieRepository();
+        return movieRepository.findAll(connection);
+    }
+
 } // end of class
