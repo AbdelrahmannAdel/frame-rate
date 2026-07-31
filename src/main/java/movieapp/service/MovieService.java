@@ -1,5 +1,9 @@
 package movieapp.service;
 
+import movieapp.api.TmdbClient;
+import movieapp.api.dto.TmdbMovieDetails;
+import movieapp.api.TmdbMovieMapper;
+import movieapp.api.dto.TmdbMovieResult;
 import movieapp.db.MovieRepository;
 import movieapp.db.ReviewRepository;
 import movieapp.db.WatchlistRepository;
@@ -9,6 +13,7 @@ import movieapp.model.Movie;
 import movieapp.model.Review;
 import movieapp.model.WatchlistEntry;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -51,5 +56,21 @@ public class MovieService {
 
         return movieRepository.delete(connection,id);
     } // end of deleteMovie()
+
+    public Movie searchAndImport(String title) throws IOException, InterruptedException, DuplicateMovieException, SQLException {
+        TmdbClient tmdbClient = new TmdbClient();
+
+        // search tmdb by title and parse the results into a list
+        List<TmdbMovieResult> movieResults = tmdbClient.parseSearchResults(tmdbClient.searchMovies(title));
+
+        // pick the first match from the search results
+        TmdbMovieResult firstResult = movieResults.getFirst();
+
+        // fetch full details for that specific movie (search results don't include runtime)
+        TmdbMovieDetails movieDetails = tmdbClient.parseMovieDetails(tmdbClient.getMovieDetails(firstResult.getTmdbId()));
+
+        // map the search result + real runtime into our db via MovieService
+        return TmdbMovieMapper.importMovie(connection, firstResult, movieDetails.getRuntime());
+    } // end of searchAndImport()
 
 } // end of class

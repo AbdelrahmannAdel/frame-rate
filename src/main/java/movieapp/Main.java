@@ -14,6 +14,7 @@ import movieapp.service.ReviewService;
 import movieapp.service.UserService;
 import movieapp.service.WatchlistService;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -37,8 +38,8 @@ public class Main {
             User userB = userService.registerUser("bob", "bob@example.com", "hashB");
             System.out.println("Registered: " + userB.getUsername() + " (id=" + userB.getId() + ")");
 
-            Movie movie = movieService.createMovie(27205, "Inception", 2010, "/poster.jpg", "A mind-bending thriller", 148);
-            System.out.println("Created movie: " + movie.getTitle() + " (id=" + movie.getId() + ")");
+            Movie movie = movieService.searchAndImport("Inception");
+            System.out.println("Created movie: " + movie.getTitle() + " (id=" + movie.getId() + ", runtimeMinutes=" + movie.getRuntimeMinutes() + ")");
 
             Review review = reviewService.createReview(userA.getId(), movie.getId(), 9);
             System.out.println("Created review: rating=" + review.getRating() + " (id=" + review.getId() + ")");
@@ -145,6 +146,8 @@ public class Main {
 
         } catch (SQLException e) {
             System.out.println("Database error: " + e.getMessage());
+        } catch (IOException | InterruptedException e) {
+            System.out.println("TMDB API error: " + e.getMessage());
         } catch (InvalidRatingException | DuplicateReviewException | DuplicateWatchlistException
                  | SelfFollowException | DuplicateFollowException | DuplicateUsernameException
                  | DuplicateEmailException | DuplicateMovieException | NotFoundException

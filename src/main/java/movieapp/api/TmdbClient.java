@@ -11,6 +11,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import movieapp.api.dto.TmdbMovieDetails;
+import movieapp.api.dto.TmdbMovieResult;
+import movieapp.api.dto.TmdbSearchResponse;
+
 import java.util.List;
 
 public class TmdbClient {
@@ -19,7 +23,7 @@ public class TmdbClient {
     private static final String API_KEY = dotenv.get("TMDB_API_KEY");
     private static final HttpClient httpClient = HttpClient.newHttpClient();
 
-    // sends a get request (using title) to tmdb and gets back a response as a json
+    // sends a get request (using title) to tmdb and gets back a response as JSON
     // the response is a wrapper object with an array of movies as 'result'
     public String searchMovies(String title) throws IOException, InterruptedException {
 
@@ -45,5 +49,30 @@ public class TmdbClient {
 
         return response.getResults();
     } // end of parseSeearchResults()
+
+    // sends a get request using tmdb id to get movie details
+    // returns response body as JSON object
+    public String getMovieDetails(int tmdbId) throws IOException, InterruptedException {
+
+        // construct the url
+        String url = "https://api.themoviedb.org/3/movie/" + tmdbId + "?api_key=" + API_KEY;
+
+        // build the request
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
+
+        // send the request and save the response
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        // return the response's body (JSON)
+        return response.body();
+    } // end of getMovieDetails()
+
+    // parse the movie details request's json and return a TmdbMovieDetails object
+    public TmdbMovieDetails parseMovieDetails(String json) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readValue(json, TmdbMovieDetails.class);
+    } // end of parseMovieDetails()
+
+
 
 } // end of class
