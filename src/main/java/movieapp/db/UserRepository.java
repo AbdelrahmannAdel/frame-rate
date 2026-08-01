@@ -44,6 +44,24 @@ public class UserRepository {
         WHERE email = ?
     """;
 
+    private static final String UPDATE_USERNAME = """
+        UPDATE users
+        SET username = ?
+        WHERE id = ?
+    """;
+
+    private static final String UPDATE_EMAIL = """
+        UPDATE users
+        SET email = ?
+        WHERE id = ?
+    """;
+
+    private static final String UPDATE_PASSWORD = """
+        UPDATE users
+        SET password_hash = ?
+        WHERE id = ?
+    """;
+
     // inserts a user into the users table
     public User create(Connection connection, String username, String email, String passwordHash) throws SQLException {
 
@@ -143,6 +161,36 @@ public class UserRepository {
             return result > 0;
         }
     } // end of delete()
+
+    public User updateUsername(Connection connection, int id, String username) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(UPDATE_USERNAME)) {
+            ps.setString(1, username);
+            ps.setInt(2, id);
+
+            ps.executeUpdate();
+            return findById(connection, id);
+        }
+    } // end of updateUsername()
+
+    public User updateEmail(Connection connection, int id, String email) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(UPDATE_EMAIL)) {
+            ps.setString(1, email);
+            ps.setInt(2, id);
+
+            ps.executeUpdate();
+            return findById(connection, id);
+        }
+    } // end of updateEmail()
+
+    public User updatePassword(Connection connection, int id, String passwordHash) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(UPDATE_PASSWORD)) {
+            ps.setString(1, passwordHash);
+            ps.setInt(2, id);
+
+            ps.executeUpdate();
+            return findById(connection, id);
+        }
+    } // end of updatePassword()
 
     // maps the current row of a ResultSet into a User object
     // pulled out into its own method since findById, findByUsername, and findAll

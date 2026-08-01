@@ -85,4 +85,51 @@ public class UserService {
         return user;
     } // end of getUserById()
 
+    public User updateUsername(int userId, String newUsername) throws SQLException, NotFoundException, DuplicateUsernameException {
+        UserRepository userRepository = new UserRepository();
+        User user = userRepository.findById(connection, userId);
+
+        // if user not found
+        if (user == null)
+            throw new NotFoundException("No user found with id: " + userId);
+
+        User existingUser = userRepository.findByUsername(connection, newUsername);
+
+        // if a DIFFERENT user already has this username
+        if (existingUser != null && existingUser.getId() != userId)
+            throw new DuplicateUsernameException("Username already taken: " + newUsername);
+
+        return userRepository.updateUsername(connection, userId, newUsername);
+    } // end of updateUsername()
+
+    public User updateEmail(int userId, String newEmail) throws SQLException, NotFoundException, DuplicateEmailException {
+        UserRepository userRepository = new UserRepository();
+
+        User user = userRepository.findById(connection, userId);
+
+        // if user not found
+        if (user == null)
+            throw new NotFoundException("No user found with id: " + userId);
+
+        User existingUser = userRepository.findByEmail(connection, newEmail);
+
+        // if a different user already has this email
+        if (existingUser != null && existingUser.getId() != userId)
+            throw new DuplicateEmailException("Email already taken: " + newEmail);
+
+        return userRepository.updateEmail(connection, userId, newEmail);
+    } // end of updateEmail()
+
+    public User updatePassword(int userId, String newPasswordHash) throws SQLException, NotFoundException {
+        UserRepository userRepository = new UserRepository();
+
+        User user = userRepository.findById(connection, userId);
+
+        // if user not found
+        if (user == null)
+            throw new NotFoundException("No user found with id: " + userId);
+
+        return userRepository.updatePassword(connection, userId, newPasswordHash);
+    } // end of updatePassword()
+
 } // end of class

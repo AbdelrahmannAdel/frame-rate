@@ -40,6 +40,12 @@ public class ReviewRepository {
         WHERE id = ?
     """;
 
+    private static final String UPDATE_REVIEW = """
+        UPDATE reviews
+        SET rating = ?
+        WHERE id = ?
+    """;
+
     public Review create(Connection connection, int userId, int movieId, int rating) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(INSERT_REVIEW, Statement.RETURN_GENERATED_KEYS)){
             ps.setInt(1, userId);
@@ -70,6 +76,7 @@ public class ReviewRepository {
         return null;
     } // end of findById()
 
+    @SuppressWarnings("DuplicatedCode")
     public List<Review> findByUser(Connection connection, int userId) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(SELECT_REVIEWS_BY_USER)){
             ps.setInt(1, userId);
@@ -82,6 +89,7 @@ public class ReviewRepository {
         }
     } // end of findByUser()
 
+    @SuppressWarnings("DuplicatedCode")
     public List<Review> findByMovie(Connection connection, int movieId) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(SELECT_REVIEWS_BY_MOVIE)){
             ps.setInt(1, movieId);
@@ -102,6 +110,16 @@ public class ReviewRepository {
             return result > 0;
         }
     } // end of delete()
+
+    public Review update(Connection connection, int id, int rating) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(UPDATE_REVIEW)) {
+            ps.setInt(1, rating);
+            ps.setInt(2, id);
+
+            ps.executeUpdate();
+            return findById(connection, id);
+        }
+    } // end of update()
 
     // maps the current row of a ResultSet into a Review object
     // pulled out into its own method since other methods need the exact same row-to-object logic

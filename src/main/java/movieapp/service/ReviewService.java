@@ -72,4 +72,25 @@ public class ReviewService {
         return reviewRepository.findByUser(connection,userId);
     } // end of getReviewsByUser()
 
+    public Review updateReview(int userId, int id, int rating) throws SQLException, NotFoundException, UnauthorizedActionException, InvalidRatingException {
+        ReviewRepository reviewRepository = new ReviewRepository();
+
+        // rating should be between 1 - 10
+        if (rating < 1 || rating > 10) {
+            throw new InvalidRatingException("Rating must be between 1 and 10, got: " + rating);
+        }
+
+        Review review = reviewRepository.findById(connection, id);
+
+        // if review not found
+        if (review == null)
+            throw new NotFoundException("No review found with id: " + id);
+
+        // if user id doesn't match
+        if (review.getUserId() != userId)
+            throw new UnauthorizedActionException("User " + userId + " is not authorized to update review " + id);
+
+        return reviewRepository.update(connection, id, rating);
+    } // end of updateReview()
+
 } // end of class

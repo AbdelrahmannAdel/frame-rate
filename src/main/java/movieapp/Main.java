@@ -1,20 +1,21 @@
 package movieapp;
 
-import movieapp.api.*;
 import movieapp.db.*;
 import movieapp.exception.*;
 import movieapp.model.*;
 import movieapp.service.*;
-import movieapp.web.dto.*;
+import movieapp.web.dto.request.*;
+import movieapp.web.dto.response.*;
 
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class Main {
     public static void main(String[] args) {
@@ -28,10 +29,47 @@ public class Main {
 
             // ================ GET ROUTES ================
 
+            // GET /
+            // Expects: no params | no body
+            // Returns: 200 + plain text "Hello from Javalin!"
             config.routes.get("/", ctx ->
                     ctx.result("Hello from Javalin!")
-            ); // end of GET /
+            );
 
+            // GET /movies
+            // Expects: no params | no body
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "tmdbId":int,
+            //                    "title":string,
+            //                    "releaseYear":int|null,
+            //                    "posterPath":string|null,
+            //                    "overview":string|null,
+            //                    "runtimeMinutes":int|null,
+            //                    "cachedAt":datetime
+            //                   }
+            //                  ]
+            config.routes.get("/movies", ctx -> {
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    MovieService movieService = new MovieService(conn);
+                    List<Movie> moviesLis = movieService.getAllMovies();
+                    ctx.json(moviesLis);
+                }
+            });
+
+            // GET /movies/{id}
+            // Expects: path -> movie id
+            // Returns: 200 +   {
+            //                    "id":int,
+            //                    "tmdbId":int,
+            //                    "title":string,
+            //                    "releaseYear":int|null,
+            //                    "posterPath":string|null,
+            //                    "overview":string|null,
+            //                    "runtimeMinutes":int|null,
+            //                    "cachedAt":datetime
+            //                   }
             config.routes.get("/movies/{id}", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
@@ -40,16 +78,19 @@ public class Main {
                     Movie movie = movieService.getMovieById(id);
                     ctx.json(movie);
                 }
-            }); // end of GET /movies/{id}
+            });
 
-            config.routes.get("/movies", ctx -> {
-               try (Connection conn = DatabaseConfig.getConnection()){
-                   MovieService movieService = new MovieService(conn);
-                   List<Movie> moviesLis = movieService.getAllMovies();
-                   ctx.json(moviesLis);
-               }
-            }); // end of GET /movies
-
+            // GET /movies/{id}/reviews
+            // Expects: path -> movie id
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "userId":int,
+            //                    "movieId":int,
+            //                    "rating":int,
+            //                    "createdAt":datetime
+            //                   }
+            //                  ]
             config.routes.get("/movies/{id}/reviews", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
@@ -58,17 +99,39 @@ public class Main {
                     List<Review> reviewsList = reviewService.getReviewsByMovie(id);
                     ctx.json(reviewsList);
                 }
-            }); // end of GET /movies/{id}/reviews
+            });
 
+            // GET /users/{id}
+            // Expects: path -> user id
+            // Returns: 200 +   {
+            //                   "id":int,
+            //                   "username":string,
+            //                   "email":string,
+            //                   "passwordHash":string,
+            //                   "createdAt":datetime
+            //                  }
             config.routes.get("/users/{id}", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
                 try (Connection conn = DatabaseConfig.getConnection()) {
                     UserService userService = new UserService(conn);
-                    ctx.json(userService.getUserById(id));
+                    UserResponse userResponse = new UserResponse(userService.getUserById(id));
+                    ctx.json(userResponse);
                 }
-            }); // end of get /users/{id}
+            });
 
+
+            // GET /users/{id}/reviews
+            // Expects: path -> user id
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "userId":int,
+            //                    "movieId":int,
+            //                    "rating":int,
+            //                    "createdAt":datetime
+            //                   }
+            //                  ]
             config.routes.get("/users/{id}/reviews", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
@@ -77,8 +140,18 @@ public class Main {
                     List<Review> reviewsList = reviewService.getReviewsByUser(id);
                     ctx.json(reviewsList);
                 }
-            }); // end of GET /users/{id}/reviews
+            });
 
+            // GET /users/{id}/watchlist
+            // Expects: path -> user id
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "userId":int,
+            //                    "movieId":int,
+            //                    "addedAt":datetime
+            //                   }
+            //                  ]
             config.routes.get("/users/{id}/watchlist", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
@@ -87,30 +160,78 @@ public class Main {
                     List<WatchlistEntry> watchList = watchlistService.getWatchlistByUser(id);
                     ctx.json(watchList);
                 }
-            }); // end of GET /users/{id}/watchlist
+            });
 
+            // GET /users/{id}/following
+            // Expects: path -> user id
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "username":string,
+            //                    "email":string,
+            //                    "passwordHash":string,
+            //                    "createdAt":datetime
+            //                   }
+            //                  ]
             config.routes.get("/users/{id}/following", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
                 try (Connection conn = DatabaseConfig.getConnection()){
                     FollowService followService = new FollowService(conn);
                     List<User> followingList = followService.getFollowing(id);
-                    ctx.json(followingList);
-                }
-            }); // end of GET /users/{id}/following
 
+                    List<UserResponse> responseList = new ArrayList<>();
+                    for (User user : followingList) {
+                        responseList.add(new UserResponse(user));
+                    }
+
+                    ctx.json(responseList);
+                }
+            });
+
+            // GET /users/{id}/followers
+            // Expects: path -> user id
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "username":string,
+            //                    "email":string,
+            //                    "passwordHash":string,
+            //                    "createdAt":datetime
+            //                   }
+            //                  ]
             config.routes.get("/users/{id}/followers", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
                 try (Connection conn = DatabaseConfig.getConnection()){
                     FollowService followService = new FollowService(conn);
                     List<User> followersList = followService.getFollowers(id);
-                    ctx.json(followersList);
+
+                    List<UserResponse> responseList = new ArrayList<>();
+                    for (User user : followersList) {
+                        responseList.add(new UserResponse(user));
+                    }
+
+                    ctx.json(responseList);
                 }
-            }); // end of GET /users/{id}/followers
+            });
 
             // ================ POST ROUTES ================
 
+            // POST /users
+            // Expects: body -> {
+            //                   "username":string,
+            //                   "email":string,
+            //                   "password":string
+            //                  }
+            // Returns: 201 + {
+            //                 "id":int,
+            //                 "username":string,
+            //                 "email":string,
+            //                 "passwordHash":string,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: DuplicateUsernameException (409), DuplicateEmailException (409)
             config.routes.post("/users", ctx -> {
                 RegisterUserRequest request = ctx.bodyAsClass(RegisterUserRequest.class);
 
@@ -119,10 +240,25 @@ public class Main {
                 try (Connection conn = DatabaseConfig.getConnection()) {
                     UserService userService = new UserService(conn);
                     User user = userService.registerUser(request.getUsername(), request.getEmail(), request.getPassword());
-                    ctx.status(201).json(user);
+                    UserResponse userResponse = new UserResponse(user);
+                    ctx.status(201).json(userResponse);
                 }
-            }); // end of POST /users
+            });
 
+            // POST /movies/{id}/reviews
+            // Expects: path -> movie id
+            //          body -> {
+            //                   "userId":int,
+            //                   "rating":int
+            //                  }
+            // Returns: 201 + {
+            //                 "id":int,
+            //                 "userId":int,
+            //                 "movieId":int,
+            //                 "rating":int,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: InvalidRatingException (400), DuplicateReviewException (409)
             config.routes.post("/movies/{id}/reviews", ctx -> {
                 int movieId = Integer.parseInt(ctx.pathParam("id"));
                 CreateReviewRequest request = ctx.bodyAsClass(CreateReviewRequest.class);
@@ -132,8 +268,18 @@ public class Main {
                     Review review = reviewService.createReview(request.getUserId(), movieId, request.getRating());
                     ctx.status(201).json(review);
                 }
-            }); // end of POST /movies/{id}/reviews
+            });
 
+            // POST /users/{id}/watchlist
+            // Expects: path -> user id
+            //          body -> {"movieId":int}
+            // Returns: 201 + {
+            //                 "id":int,
+            //                 "userId":int,
+            //                 "movieId":int,
+            //                 "addedAt":datetime
+            //                }
+            // Throws: DuplicateWatchlistException (409)
             config.routes.post("/users/{id}/watchlist", ctx -> {
                 int userId = Integer.parseInt(ctx.pathParam("id"));
                 AddToWatchlistRequest request = ctx.bodyAsClass(AddToWatchlistRequest.class);
@@ -143,8 +289,17 @@ public class Main {
                     WatchlistEntry watchlistEntry = watchlistService.addToWatchlist(userId, request.getMovieId());
                     ctx.status(201).json(watchlistEntry);
                 }
-            }); // end of POST /users/{id}/watchlist
+            });
 
+            // POST /users/{id}/following
+            // Expects: path -> user id (the follower)
+            //          body -> {"followeeId":int}
+            // Returns: 201 + {
+            //                 "followerId":int,
+            //                 "followeeId":int,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: SelfFollowException (400), DuplicateFollowException (409)
             config.routes.post("/users/{id}/following", ctx -> {
                 int followerId = Integer.parseInt(ctx.pathParam("id"));
                 FollowUserRequest request = ctx.bodyAsClass(FollowUserRequest.class);
@@ -154,11 +309,111 @@ public class Main {
                     Follow follow = followService.followUser(followerId, request.getFolloweeId());
                     ctx.status(201).json(follow);
                 }
-            }); // end of POST /users/{id}/following
+            });
 
+            // ================ PUT ROUTES ================
+
+            // PUT /movies/{id}/reviews/{reviewId}
+            // Expects: path -> movie id, review id
+            //          query -> userId
+            //          body -> {"rating":int}
+            // Returns: 200 + {
+            //                 "id":int,
+            //                 "userId":int,
+            //                 "movieId":int,
+            //                 "rating":int,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: NotFoundException (404), UnauthorizedActionException (403), InvalidRatingException (400)
+            config.routes.put("/movies/{id}/reviews/{reviewId}", ctx -> {
+                int reviewId = Integer.parseInt(ctx.pathParam("reviewId"));
+                int userId = Integer.parseInt(ctx.queryParam("userId"));
+                UpdateReviewRequest request = ctx.bodyAsClass(UpdateReviewRequest.class);
+
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    ReviewService reviewService = new ReviewService(conn);
+                    Review updatedReview = reviewService.updateReview(userId,reviewId, request.getRating());
+                    ctx.status(200).json(updatedReview);
+                }
+            });
+
+            // PUT /users/{id}/username
+            // Expects: path -> user id
+            //          body -> {"username":string}
+            // Returns: 200 + {
+            //                 "id":int,
+            //                 "username":string,
+            //                 "email":string,
+            //                 "passwordHash":string,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: NotFoundException (404), DuplicateUsernameException (409)
+            config.routes.put("/users/{id}/username", ctx -> {
+                int userId = Integer.parseInt(ctx.pathParam("id"));
+                UpdateUsernameRequest request = ctx.bodyAsClass(UpdateUsernameRequest.class);
+
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    UserService userService = new UserService(conn);
+                    User user = userService.updateUsername(userId, request.getUsername());
+                    UserResponse userResponse = new UserResponse(user);
+                    ctx.status(200).json(userResponse);
+                }
+            });
+
+            // PUT /users/{id}/email
+            // Expects: path -> user id
+            //          body -> {"email":string}
+            // Returns: 200 + {
+            //                 "id":int,
+            //                 "username":string,
+            //                 "email":string,
+            //                 "passwordHash":string,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: NotFoundException (404), DuplicateEmailException (409)
+            config.routes.put("/users/{id}/email", ctx -> {
+                int userId = Integer.parseInt(ctx.pathParam("id"));
+                UpdateEmailRequest request = ctx.bodyAsClass(UpdateEmailRequest.class);
+
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    UserService userService = new UserService(conn);
+                    User updatedUser = userService.updateEmail(userId, request.getEmail());
+                    UserResponse userResponse = new UserResponse(updatedUser);
+                    ctx.status(200).json(userResponse);
+                }
+            });
+
+            // PUT /users/{id}/password
+            // Expects: path -> user id
+            //          body -> {"password":string}
+            // Returns: 200 + {
+            //                 "id":int,
+            //                 "username":string,
+            //                 "email":string,
+            //                 "passwordHash":string,
+            //                 "createdAt":datetime
+            //                }
+            // Throws: NotFoundException (404)
+            config.routes.put("/users/{id}/password", ctx -> {
+                int userId = Integer.parseInt(ctx.pathParam("id"));
+                UpdatePasswordRequest request = ctx.bodyAsClass(UpdatePasswordRequest.class);
+
+                // hashing the password should happen here before passing it to updatePassword()
+
+                try (Connection conn = DatabaseConfig.getConnection()){
+                    UserService userService = new UserService(conn);
+                    User updatedUser = userService.updatePassword(userId, request.getPassword());
+                    UserResponse userResponse = new UserResponse(updatedUser);
+                    ctx.status(200).json(userResponse);
+                }
+            });
 
             // ================ DELETE ROUTES ================
 
+            // DELETE /movies/{id}
+            // Expects: path -> movie id
+            // Returns: 200 + {"deleted":true}
+            // Throws: NotFoundException (404)
             config.routes.delete("/movies/{id}", ctx -> {
                 int movieId = Integer.parseInt(ctx.pathParam("id"));
 
@@ -167,8 +422,12 @@ public class Main {
                     movieService.deleteMovie(movieId);
                     ctx.status(200).json(Map.of("deleted", true));
                 }
-            }); // end of DELETE /movies/{id}
+            });
 
+            // DELETE /users/{id}
+            // Expects: path -> user id
+            // Returns: 200 + {"deleted":true}
+            // Throws: NotFoundException (404)
             config.routes.delete("/users/{id}", ctx -> {
                 int userId = Integer.parseInt(ctx.pathParam("id"));
                 try (Connection conn = DatabaseConfig.getConnection()) {
@@ -176,19 +435,12 @@ public class Main {
                     userService.deleteUser(userId);
                     ctx.status(200).json(Map.of("deleted", true));
                 }
-            }); // end of DELETE /users/{id}
+            });
 
-            config.routes.delete("/movies/{id}/reviews/{reviewId}", ctx -> {
-                int reviewId = Integer.parseInt(ctx.pathParam("reviewId"));
-                int userId = Integer.parseInt(Objects.requireNonNull(ctx.queryParam("userId")));
-
-                try (Connection conn = DatabaseConfig.getConnection()) {
-                    ReviewService reviewService = new ReviewService(conn);
-                    reviewService.deleteReview(userId, reviewId);
-                    ctx.status(200).json(Map.of("deleted", true));
-                }
-            }); // end of DELETE /movies/{id}/reviews/{reviewId}
-
+            // DELETE /users/{id}/watchlist/{entryId}
+            // Expects: path -> user id, watchlist entry id
+            // Returns: 200 + {"deleted":true}
+            // Throws: NotFoundException (404), UnauthorizedActionException (403)
             config.routes.delete("/users/{id}/watchlist/{entryId}", ctx -> {
                 int userId = Integer.parseInt(ctx.pathParam("id"));
                 int entryId = Integer.parseInt(ctx.pathParam("entryId"));
@@ -198,8 +450,12 @@ public class Main {
                     watchlistService.removeFromWatchlist(userId, entryId);
                     ctx.status(200).json(Map.of("deleted", true));
                 }
-            }); // end of DELETE /users/{id}/watchlist/{entryId}
+            });
 
+            // DELETE /users/{id}/following/{followeeId}
+            // Expects: path -> user id (the follower), followee id
+            // Returns: 200 + {"deleted":true}
+            // Throws: NotFoundException (404)
             config.routes.delete("/users/{id}/following/{followeeId}", ctx -> {
                 int userId = Integer.parseInt(ctx.pathParam("id"));
                 int followeeId = Integer.parseInt(ctx.pathParam("followeeId"));
@@ -209,7 +465,23 @@ public class Main {
                     followService.unfollowUser(userId, followeeId);
                     ctx.status(200).json(Map.of("deleted", true));
                 }
-            }); // end of DELETE /users/{id}/following/{followeeId}
+            });
+
+            // DELETE /movies/{id}/reviews/{reviewId}
+            // Expects: path -> movie id, review id
+            //          query -> userId
+            // Returns: 200 + {"deleted":true}
+            // Throws: NotFoundException (404), UnauthorizedActionException (403)
+            config.routes.delete("/movies/{id}/reviews/{reviewId}", ctx -> {
+                int reviewId = Integer.parseInt(ctx.pathParam("reviewId"));
+                int userId = Integer.parseInt(ctx.queryParam("userId"));
+
+                try (Connection conn = DatabaseConfig.getConnection()) {
+                    ReviewService reviewService = new ReviewService(conn);
+                    reviewService.deleteReview(userId, reviewId);
+                    ctx.status(200).json(Map.of("deleted", true));
+                }
+            });
 
             // ================ EXCEPTION ROUTES ================
 

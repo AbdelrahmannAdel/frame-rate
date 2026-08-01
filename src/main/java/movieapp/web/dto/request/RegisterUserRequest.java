@@ -1,4 +1,4 @@
-package movieapp.web.dto;
+package movieapp.web.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
