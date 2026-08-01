@@ -107,7 +107,6 @@ public class Main {
             //                   "id":int,
             //                   "username":string,
             //                   "email":string,
-            //                   "passwordHash":string,
             //                   "createdAt":datetime
             //                  }
             config.routes.get("/users/{id}", ctx -> {
@@ -169,7 +168,6 @@ public class Main {
             //                    "id":int,
             //                    "username":string,
             //                    "email":string,
-            //                    "passwordHash":string,
             //                    "createdAt":datetime
             //                   }
             //                  ]
@@ -196,7 +194,6 @@ public class Main {
             //                    "id":int,
             //                    "username":string,
             //                    "email":string,
-            //                    "passwordHash":string,
             //                    "createdAt":datetime
             //                   }
             //                  ]
@@ -228,7 +225,6 @@ public class Main {
             //                 "id":int,
             //                 "username":string,
             //                 "email":string,
-            //                 "passwordHash":string,
             //                 "createdAt":datetime
             //                }
             // Throws: DuplicateUsernameException (409), DuplicateEmailException (409)
@@ -344,7 +340,6 @@ public class Main {
             //                 "id":int,
             //                 "username":string,
             //                 "email":string,
-            //                 "passwordHash":string,
             //                 "createdAt":datetime
             //                }
             // Throws: NotFoundException (404), DuplicateUsernameException (409)
@@ -367,7 +362,6 @@ public class Main {
             //                 "id":int,
             //                 "username":string,
             //                 "email":string,
-            //                 "passwordHash":string,
             //                 "createdAt":datetime
             //                }
             // Throws: NotFoundException (404), DuplicateEmailException (409)
@@ -390,7 +384,6 @@ public class Main {
             //                 "id":int,
             //                 "username":string,
             //                 "email":string,
-            //                 "passwordHash":string,
             //                 "createdAt":datetime
             //                }
             // Throws: NotFoundException (404)
