@@ -1,0 +1,99 @@
+### TESTING ROUTES
+### ================ GET ROUTES ================
+
+### Get all movies
+GET http://localhost:8080/movies
+
+### Get movie by id
+GET http://localhost:8080/movies/1
+
+### Get reviews for a movie
+GET http://localhost:8080/movies/1/reviews
+
+### Get user by id
+GET http://localhost:8080/users/1
+
+### Get reviews by user
+GET http://localhost:8080/users/1/reviews
+
+### Get watchlist by user
+GET http://localhost:8080/users/1/watchlist
+
+### Get who a user is following
+GET http://localhost:8080/users/1/following
+
+### Get a user's followers
+GET http://localhost:8080/users/1/followers
+
+
+### ================ POST ROUTES ================
+
+### Register a user
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "abe",
+  "email": "abe@example.com",
+  "password": "testpass123"
+}
+
+### Create a review for a movie
+POST http://localhost:8080/movies/2/reviews
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "rating": 6
+}
+
+### Add a movie to a user's watchlist
+POST http://localhost:8080/users/1/watchlist
+Content-Type: application/json
+
+{
+  "movieId": 1
+}
+
+### Follow a user
+POST http://localhost:8080/users/1/following
+Content-Type: application/json
+
+{
+  "followeeId": 3
+}
+
+### Duplicate username - alice already exists -> should 409 DuplicateUsernameException
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "email": "somethingnew@example.com",
+  "password": "testpass123"
+}
+
+### Duplicate watchlist entry - alice already has The Dark Knight (movie 2) -> should 409 DuplicateWatchlistException
+POST http://localhost:8080/users/1/watchlist
+Content-Type: application/json
+
+{
+  "movieId": 2
+}
+
+### Self follow - alice following herself -> should 400 SelfFollowException
+POST http://localhost:8080/users/1/following
+Content-Type: application/json
+
+{
+  "followeeId": 1
+}
+
+### Invalid rating - out of 1-10 range -> should 400 InvalidRatingException
+POST http://localhost:8080/movies/1/reviews
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "rating": 15
+}
