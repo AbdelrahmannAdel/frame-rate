@@ -97,3 +97,30 @@ Content-Type: application/json
   "userId": 2,
   "rating": 15
 }
+
+### Delete review - bob's review of Dark Knight (review id 4, owned by user 2)
+DELETE http://localhost:8080/movies/2/reviews/4?userId=2
+
+### Verify - should now show only alice's original review of Dark Knight
+GET http://localhost:8080/movies/2/reviews
+
+
+### Delete watchlist entry - alice's Inception entry (entry id 3)
+DELETE http://localhost:8080/users/1/watchlist/3
+
+### Verify - alice's watchlist should be back to just Dark Knight
+GET http://localhost:8080/users/1/watchlist
+
+
+### Delete follow - alice unfollowing abe (user 3)
+DELETE http://localhost:8080/users/1/following/3
+
+### Verify - alice should only be following bob again
+GET http://localhost:8080/users/1/following
+
+
+### Delete user - abe (user 3, throwaway test user)
+DELETE http://localhost:8080/users/3
+
+### Verify - should 404, user no longer exists
+GET http://localhost:8080/users/3
