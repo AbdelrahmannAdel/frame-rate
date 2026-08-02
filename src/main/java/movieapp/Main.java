@@ -33,6 +33,15 @@ public class Main {
             // instead of throwing InvalidDefinitionException
             config.jsonMapper(new JavalinJackson());
 
+            // enables CORS so the React dev server (localhost:5173) can call this API.
+            // without this, the browser blocks the frontend from reading responses,
+            // even though the request actually reaches and is handled by this server.
+            config.bundledPlugins.enableCors(cors -> {
+                cors.addRule(rule -> {
+                    rule.allowHost("http://localhost:5173");
+                });
+            });
+
             // global before-handler: runs before every request.
             // GET requests, POST /users, and POST /login are public, everything else
             // requires a valid Bearer token, and stores the verified userId on ctx for routes to use.
