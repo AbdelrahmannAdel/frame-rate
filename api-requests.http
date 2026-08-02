@@ -1,126 +1,53 @@
-### TESTING ROUTES
-### ================ GET ROUTES ================
-
-### Get all movies
-GET http://localhost:8080/movies
-
-### Get movie by id
-GET http://localhost:8080/movies/1
-
-### Get reviews for a movie
-GET http://localhost:8080/movies/1/reviews
-
-### Get user by id
-GET http://localhost:8080/users/1
-
-### Get reviews by user
-GET http://localhost:8080/users/1/reviews
-
-### Get watchlist by user
-GET http://localhost:8080/users/1/watchlist
-
-### Get who a user is following
-GET http://localhost:8080/users/1/following
-
-### Get a user's followers
-GET http://localhost:8080/users/1/followers
-
-
-### ================ POST ROUTES ================
-
-### Register a user
+### 1. tegister a new user - should return both user info AND a token
 POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "abe",
-  "email": "abe@example.com",
-  "password": "testpass123"
+  "username": "testuser3",
+  "email": "testuser3@example.com",
+  "password": "somepassword123"
 }
 
-### Create a review for a movie
-POST http://localhost:8080/movies/2/reviews
-Content-Type: application/json
 
-{
-  "userId": 2,
-  "rating": 6
-}
-
-### Add a movie to a user's watchlist
-POST http://localhost:8080/users/1/watchlist
+### 2. try a protected route with NO token at all - should 401
+POST http://localhost:8080/users/watchlist
 Content-Type: application/json
 
 {
   "movieId": 1
 }
 
-### Follow a user
-POST http://localhost:8080/users/1/following
+
+### 3. try a protected route with a valid token - should succeed
+### Replace <PASTE_TOKEN_HERE> with the real token from step 1's response
+POST http://localhost:8080/users/watchlist
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjYsImV4cCI6MTc4NTcyOTAzMH0.VcnLqKb7OjnMmD3kFs23H-hkvjdoblbbYscs46QPT1o
+
+{
+  "movieId": 1
+}
+
+
+### 4. try with a garbage/invalid token - should 401
+POST http://localhost:8080/users/watchlist
+Content-Type: application/json
+Authorization: Bearer this.is.not.a.real.token
+
+{
+  "movieId": 1
+}
+
+
+### 5. login with the same user - should also return a working token
+POST http://localhost:8080/login
 Content-Type: application/json
 
 {
-  "followeeId": 3
+  "email": "testuser3@example.com",
+  "password": "somepassword123"
 }
 
-### Duplicate username - alice already exists -> should 409 DuplicateUsernameException
-POST http://localhost:8080/users
-Content-Type: application/json
 
-{
-  "username": "alice",
-  "email": "somethingnew@example.com",
-  "password": "testpass123"
-}
-
-### Duplicate watchlist entry - alice already has The Dark Knight (movie 2) -> should 409 DuplicateWatchlistException
-POST http://localhost:8080/users/1/watchlist
-Content-Type: application/json
-
-{
-  "movieId": 2
-}
-
-### Self follow - alice following herself -> should 400 SelfFollowException
-POST http://localhost:8080/users/1/following
-Content-Type: application/json
-
-{
-  "followeeId": 1
-}
-
-### Invalid rating - out of 1-10 range -> should 400 InvalidRatingException
-POST http://localhost:8080/movies/1/reviews
-Content-Type: application/json
-
-{
-  "userId": 2,
-  "rating": 15
-}
-
-### Delete review - bob's review of Dark Knight (review id 4, owned by user 2)
-DELETE http://localhost:8080/movies/2/reviews/4?userId=2
-
-### Verify - should now show only alice's original review of Dark Knight
-GET http://localhost:8080/movies/2/reviews
-
-
-### Delete watchlist entry - alice's Inception entry (entry id 3)
-DELETE http://localhost:8080/users/1/watchlist/3
-
-### Verify - alice's watchlist should be back to just Dark Knight
-GET http://localhost:8080/users/1/watchlist
-
-
-### Delete follow - alice unfollowing abe (user 3)
-DELETE http://localhost:8080/users/1/following/3
-
-### Verify - alice should only be following bob again
-GET http://localhost:8080/users/1/following
-
-
-### Delete user - abe (user 3, throwaway test user)
-DELETE http://localhost:8080/users/3
-
-### Verify - should 404, user no longer exists
-GET http://localhost:8080/users/3
+### 6. confirm GET routes still work with NO token (should be public)
+GET http://localhost:8080/movies

@@ -1,11 +1,13 @@
 package movieapp.service;
 
+import movieapp.auth.PasswordHasher;
 import movieapp.db.FollowRepository;
 import movieapp.db.ReviewRepository;
 import movieapp.db.UserRepository;
 import movieapp.db.WatchlistRepository;
 import movieapp.exception.DuplicateEmailException;
 import movieapp.exception.DuplicateUsernameException;
+import movieapp.exception.InvalidCredentialsException;
 import movieapp.exception.NotFoundException;
 import movieapp.model.Follow;
 import movieapp.model.Review;
@@ -131,5 +133,20 @@ public class UserService {
 
         return userRepository.updatePassword(connection, userId, newPasswordHash);
     } // end of updatePassword()
+
+    // deliberately distinct error messages: user enumeration risk accepted given small, trusted user base
+    public User login(String email, String password) throws SQLException, InvalidCredentialsException {
+        UserRepository userRepository = new UserRepository();
+        User user = userRepository.findByEmail(connection, email);
+
+        if (user == null)
+            throw new InvalidCredentialsException("Incorrect email");
+
+        if (!PasswordHasher.matches(password, user.getPasswordHash()))
+            throw new InvalidCredentialsException("Incorrect password");
+
+        return user;
+    } // end of login()
+
 
 } // end of class
