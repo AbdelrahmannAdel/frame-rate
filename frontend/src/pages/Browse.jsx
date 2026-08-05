@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import { request } from "../api.js";
+import { getTopRatedMovies } from "../api.js";
 
 function Browse() {
-    // movies starts as an empty list; setMovies is how we update it
     const [movies, setMovies] = useState([]);
 
-    // runs once, right after this page first loads
     useEffect(() => {
-        request("/movies")
+        getTopRatedMovies()
             .then((data) => setMovies(data))
             .catch((err) => console.error("Failed to load movies:", err));
     }, []);
@@ -16,9 +14,9 @@ function Browse() {
         <div>
             <h1>Browse page</h1>
             <ul>
-                {movies.map((movie) => (
-                    <li key={movie.id}>
-                        {movie.title} ({movie.releaseYear})
+                {movies.map((entry) => (
+                    <li key={entry.movie.id}>
+                        {entry.movie.title} ({entry.movie.releaseYear}) — {entry.averageRating.toFixed(1)}/10
                     </li>
                 ))}
             </ul>
