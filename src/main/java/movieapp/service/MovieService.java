@@ -11,11 +11,13 @@ import movieapp.exception.DuplicateMovieException;
 import movieapp.exception.NotFoundException;
 import movieapp.model.Movie;
 import movieapp.model.Review;
+import movieapp.model.RatedMovie;
 import movieapp.model.WatchlistEntry;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MovieService {
@@ -87,5 +89,60 @@ public class MovieService {
         MovieRepository movieRepository = new MovieRepository();
         return movieRepository.findAll(connection);
     }
+
+    public Movie importByTmdbId(int tmdbId) throws SQLException, IOException, InterruptedException, DuplicateMovieException {
+        MovieRepository movieRepository = new MovieRepository();
+
+        // if this movie's already in our db, just return it
+        Movie existing = movieRepository.findByTmdbId(connection, tmdbId);
+        if (existing != null)
+            return existing;
+
+        // not in our db yet so fetch full details from TMDB and import
+        TmdbClient tmdbClient = new TmdbClient();
+        TmdbMovieDetails details = tmdbClient.parseMovieDetails(tmdbClient.getMovieDetails(tmdbId));
+
+        Integer releaseYear = null;
+        if (details.getReleaseDate() != null && details.getReleaseDate().length() >= 4)
+            releaseYear = Integer.parseInt(details.getReleaseDate().substring(0, 4));
+
+        return createMovie(
+                details.getTmdbId(),
+                details.getTitle(),
+                releaseYear,
+                details.getPosterPath(),
+                details.getOverview(),
+                details.getRuntime()
+        );
+    } // end of importByTmdbId()
+
+    public List<RatedMovie> getTopRatedMovies() throws SQLException {
+        MovieRepository movieRepository = new MovieRepository();
+        ReviewRepository reviewRepository = new ReviewRepository();
+
+        List<Movie> allMovies = movieRepository.findAll(connection);
+        List<RatedMovie> ratedMovies = new ArrayList<>();
+
+        for (Movie movie : allMovies) {
+            List<Review> reviews = reviewRepository.findByMovie(connection, movie.getId());
+
+            // skip movies nobody has reviewed yet -- an average of zero reviews
+            // is meaningless, not "0 stars"
+            if (reviews.isEmpty())
+                continue;
+
+            double sum = 0;
+            for (Review review : reviews)
+                sum += review.getRating();
+
+            double average = sum / reviews.size();
+            ratedMovies.add(new RatedMovie(movie, average));
+        }
+
+        // highest average first
+        ratedMovies.sort((a, b) -> Double.compare(b.getAverageRating(), a.getAverageRating()));
+
+        return ratedMovies;
+    } // end of getTopRatedMovies()
 
 } // end of class

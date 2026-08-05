@@ -1,11 +1,8 @@
 package movieapp;
 
-import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.auth0.jwt.interfaces.DecodedJWT;
-import io.javalin.http.HandlerType;
-import io.javalin.http.UnauthorizedResponse;
-import movieapp.auth.JwtService;
-import movieapp.auth.PasswordHasher;
+import movieapp.api.*;
+import movieapp.api.dto.*;
+import movieapp.auth.*;
 import movieapp.db.*;
 import movieapp.exception.*;
 import movieapp.model.*;
@@ -15,6 +12,11 @@ import movieapp.web.dto.response.*;
 
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
+import io.javalin.http.HandlerType;
+import io.javalin.http.UnauthorizedResponse;
+
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.DecodedJWT;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -43,12 +45,22 @@ public class Main {
             });
 
             // global before-handler: runs before every request.
-            // GET requests, POST /users, and POST /login are public, everything else
-            // requires a valid Bearer token, and stores the verified userId on ctx for routes to use.
+            // GET requests (except /users/compatibility), POST /users, and POST /login are public,
+            // everything else requires a valid Bearer token, and stores the verified userId on ctx for routes to use.
             config.routes.before(ctx -> {
 
+                // preflight requests (OPTIONS) never carry an Authorization header.
+                // browsers send them automatically before certain cross-origin requests,
+                // and they must be allowed through so the CORS plugin can respond to them
+                if (ctx.method() == HandlerType.OPTIONS) return;
+
+                // compatibility is a GET route, but unlike every other GET, it needs to know
+                // who is asking (the token supplies userId) so it's a deliberate exception
+                // to the "all GETs are public" rule
+                boolean isCompatibilityRoute = ctx.path().startsWith("/users/compatibility/");
+
                 // allow these through without a token
-                if (ctx.method() == HandlerType.GET) return;
+                if (ctx.method() == HandlerType.GET && !isCompatibilityRoute) return;
                 if (ctx.path().equals("/users") && ctx.method() == HandlerType.POST) return;
                 if (ctx.path().equals("/login")) return;
 
@@ -63,9 +75,9 @@ public class Main {
                 if (authHeader == null || !authHeader.startsWith("Bearer "))
                     throw new UnauthorizedResponse("Missing or invalid Authorization header");
 
-                String token = authHeader.substring(7); // strip "Bearer " prefix
-                DecodedJWT decodedJWT = JwtService.verifyToken(token); // verify the token
-                int userId = decodedJWT.getClaim("userId").asInt(); // extract userId from the token
+                String token = authHeader.substring(7);           // strip "Bearer " prefix
+                DecodedJWT decodedJWT = JwtService.verifyToken(token);      // verify the token
+                int userId = decodedJWT.getClaim("userId").asInt();   // extract userId from the token
 
                 // store the verified userId on the context object
                 ctx.attribute("userId", userId);
@@ -102,6 +114,44 @@ public class Main {
                 }
             });
 
+            // GET /movies/search?title=...
+            // Expects: query param -> title
+            // Returns: 200 +   [
+            //                   {
+            //                    "tmdbId":int,
+            //                    "title":string,
+            //                    "overview":string,
+            //                    "releaseDate":string,
+            //                    "posterPath":string|null
+            //                   }
+            //                  ]
+            // Throws: IOException (502, if TMDB call fails)
+            config.routes.get("/movies/search", ctx -> {
+                String title = ctx.queryParam("title");
+
+                TmdbClient tmdbClient = new TmdbClient();
+                String json = tmdbClient.searchMovies(title);
+                List<TmdbMovieResult> results = tmdbClient.parseSearchResults(json);
+
+                ctx.json(results);
+            });
+
+            // GET /movies/top-rated
+            // Expects: no params | no body
+            // Returns: 200 +   [
+            //                   {
+            //                    "movie": { "id":int, "tmdbId":int, "title":string, ... },
+            //                    "averageRating": double
+            //                   }
+            //                  ]
+            config.routes.get("/movies/top-rated", ctx -> {
+                try (Connection conn = DatabaseConfig.getConnection()) {
+                    MovieService movieService = new MovieService(conn);
+                    List<RatedMovie> topRated = movieService.getTopRatedMovies();
+                    ctx.json(topRated);
+                }
+            });
+
             // GET /movies/{id}
             // Expects: path -> movie id
             // Returns: 200 +   {
@@ -123,6 +173,7 @@ public class Main {
                     ctx.json(movie);
                 }
             });
+
 
             // GET /movies/{id}/reviews
             // Expects: path -> movie id
@@ -257,6 +308,26 @@ public class Main {
                 }
             });
 
+            // GET /users/compatibility/{otherId}
+            // Expects: path -> the other user's id
+            // Returns: 200 + {
+            //                 "compatibilityScore": double|null,
+            //                 "sharedMovies": [
+            //                   { "movieId":int, "title":string, "myRating":int, "theirRating":int }
+            //                 ]
+            //                }
+            // Throws: NotFoundException (404), NotMutualFollowException (403)
+            config.routes.get("/users/compatibility/{otherId}", ctx -> {
+                int userId = (int) ctx.attribute("userId");
+                int otherId = Integer.parseInt(ctx.pathParam("otherId"));
+
+                try (Connection conn = DatabaseConfig.getConnection()) {
+                    CompatibilityService compatibilityService = new CompatibilityService(conn);
+                    CompatibilityResult result = compatibilityService.getCompatibility(userId, otherId);
+                    ctx.json(result);
+                }
+            });
+
             // ================ POST ROUTES ================
 
             // POST /login
@@ -274,7 +345,7 @@ public class Main {
                 }
             });
 
-            // POST /users
+            // POST /users - (Register)
             // Expects: body -> {
             //                   "username":string,
             //                   "email":string,
@@ -342,6 +413,29 @@ public class Main {
                     FollowService followService = new FollowService(conn);
                     Follow follow = followService.followUser(userId, request.getFolloweeId());
                     ctx.status(201).json(follow);
+                }
+            });
+
+            // POST /movies/import
+            // Expects: body -> {"tmdbId":int}
+            // Returns: 201 + {
+            //                 "id":int,
+            //                 "tmdbId":int,
+            //                 "title":string,
+            //                 "releaseYear":int|null,
+            //                 "posterPath":string|null,
+            //                 "overview":string|null,
+            //                 "runtimeMinutes":int|null,
+            //                 "cachedAt":datetime
+            //                }
+            // Throws: DuplicateMovieException (409, race-condition edge case), IOException (502)
+            config.routes.post("/movies/import", ctx -> {
+                ImportMovieRequest request = ctx.bodyAsClass(ImportMovieRequest.class);
+
+                try (Connection conn = DatabaseConfig.getConnection()) {
+                    MovieService movieService = new MovieService(conn);
+                    Movie movie = movieService.importByTmdbId(request.getTmdbId());
+                    ctx.status(201).json(movie);
                 }
             });
 
@@ -539,7 +633,7 @@ public class Main {
                 }
             });
 
-            // ================ EXCEPTION ROUTES ================
+            // ================ EXCEPTIONS ================
 
             config.routes.exception(NotFoundException.class, (e, ctx) -> ctx.status(404).result(e.getMessage()));
             config.routes.exception(DuplicateUsernameException.class, (e, ctx) -> ctx.status(409).result(e.getMessage()));
@@ -555,6 +649,9 @@ public class Main {
             config.routes.exception(NumberFormatException.class, (e, ctx) -> ctx.status(400).result("Invalid number format: " + e.getMessage()));
             config.routes.exception(InvalidCredentialsException.class, (e, ctx) -> ctx.status(401).result(e.getMessage()));
             config.routes.exception(JWTVerificationException.class, (e, ctx) -> ctx.status(401).result("Invalid or expired token"));
+            config.routes.exception(java.io.IOException.class, (e, ctx) -> ctx.status(502).result("Failed to reach TMDB: " + e.getMessage()));
+            config.routes.exception(InterruptedException.class, (e, ctx) -> ctx.status(502).result("Request to TMDB was interrupted: " + e.getMessage()));
+            config.routes.exception(NotMutualFollowException.class, (e, ctx) -> ctx.status(403).result(e.getMessage()));
 
         }); // end of javalin config
 
