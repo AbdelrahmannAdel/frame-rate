@@ -99,3 +99,183 @@ button:disabled {
     font-size: 13px;
     margin: 0;
 }
+
+.ledger-line {
+    font-size: 12px;
+    color: #8b8674;
+    margin-bottom: 24px;
+    letter-spacing: 0.5px;
+}
+
+.search-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 36px;
+}
+.search-row input {
+    flex: 1;
+    background: #eee5cf;
+    border: none;
+    padding: 10px 14px;
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    color: #2a2620;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 22px;
+}
+
+.card {
+    position: relative;
+    background: #eee5cf;
+    color: #2a2620;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.poster {
+    height: 100px;
+    margin: 14px 14px 0 14px;
+    background: repeating-linear-gradient(135deg, #d8cdac, #d8cdac 6px, #cfc39e 6px, #cfc39e 12px);
+    display: flex;
+    align-items: flex-end;
+    padding: 8px;
+    font-size: 11px;
+    color: #6b5f3f;
+}
+
+.card-body {
+    padding: 12px 14px 16px;
+    flex: 1;
+}
+
+.title {
+    font-size: 15px;
+    font-weight: bold;
+    margin: 0 0 4px;
+}
+
+.meta {
+    font-size: 11px;
+    color: #6b5f3f;
+}
+
+.stamp {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 2px solid #c1502e;
+    background: #eee5cf;
+    color: #c1502e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    transform: rotate(-8deg);
+    font-size: 10px;
+    line-height: 1.1;
+    text-align: center;
+}
+.stamp b {
+    font-size: 14px;
+}
+
+.poster-img {
+    height: 220px;
+    width: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.settings-box {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px dashed #4a4638;
+}
+
+.movie-detail {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.detail-poster {
+    width: 220px;
+    height: 330px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.detail-poster-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eee5cf;
+    color: #6b5f3f;
+    text-align: center;
+    padding: 12px;
+}
+
+.detail-info h1 {
+    margin: 0 0 8px;
+}
+
+.rate-box, .reviews-box {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px dashed #4a4638;
+}
+
+.rate-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.rate-form input {
+    width: 60px;
+    background: #eee5cf;
+    border: none;
+    padding: 8px 10px;
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    color: #2a2620;
+}
+
+.reviews-list {
+    list-style: none;
+    padding: 0;
+}
+.reviews-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #2a2f38;
+}
+
+.star-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.star {
+    font-size: 22px;
+    color: #4a4638;
+}
+.star-filled {
+    color: #d9a441;
+}
+.star-small {
+    font-size: 14px;
+}
+
+.star-value {
+    margin-left: 8px;
+    font-size: 13px;
+    color: #8b8674;
+}

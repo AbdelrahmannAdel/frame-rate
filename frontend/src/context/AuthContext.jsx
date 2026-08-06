@@ -13,12 +13,22 @@ export function AuthProvider({ children }) {
             return;
         }
 
+
         getUser(userId)
             .then((user) => setCurrentUser(user))
             .catch(() => {
                 clearToken();
                 setCurrentUser(null);
             });
+    }, []);
+
+    useEffect(() => {
+        function handleExpired() {
+            setCurrentUser(null);
+        }
+
+        window.addEventListener("auth:expired", handleExpired);
+        return () => window.removeEventListener("auth:expired", handleExpired);
     }, []);
 
     function loginWithToken(token, user) {

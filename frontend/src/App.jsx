@@ -8,12 +8,12 @@ import Profile from './pages/Profile.jsx'
 import './style.css'
 
 function App() {
-    const { currentUser } = useAuth()
+    const { currentUser, logout } = useAuth()
 
     return (
         <div className="wrap">
             <nav>
-                <Link to="/" className="brand">frame<span>rate</span></Link>
+                <Link to="/" className="brand">Frame<span>Rate</span></Link>
 
                 <div className="nav-links">
                     {currentUser === undefined ? null : currentUser ? (

@@ -49,6 +49,8 @@ public class Main {
             // everything else requires a valid Bearer token, and stores the verified userId on ctx for routes to use.
             config.routes.before(ctx -> {
 
+                ctx.header("Access-Control-Allow-Origin", "http://localhost:5173");
+
                 // preflight requests (OPTIONS) never carry an Authorization header.
                 // browsers send them automatically before certain cross-origin requests,
                 // and they must be allowed through so the CORS plugin can respond to them

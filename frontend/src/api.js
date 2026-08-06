@@ -50,6 +50,12 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
 
     if (!response.ok) {
         const errorText = await response.text();
+
+        if (response.status === 401) {
+            clearToken();
+            window.dispatchEvent(new Event("auth:expired"));
+        }
+
         throw new Error(errorText || `Request failed: ${response.status}`);
     }
 
