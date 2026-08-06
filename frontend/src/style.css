@@ -345,3 +345,27 @@ button:disabled {
     font-size: 11px;
     padding: 4px 10px;
 }
+
+.compat-score {
+    font-size: 32px;
+    color: #d9a441;
+    margin: 12px 0 4px;
+}
+
+.compat-table {
+    width: 100%;
+    margin-top: 24px;
+    border-collapse: collapse;
+}
+.compat-table th {
+    text-align: left;
+    font-size: 12px;
+    color: #8b8674;
+    letter-spacing: 0.5px;
+    padding: 8px 0;
+    border-bottom: 1px dashed #4a4638;
+}
+.compat-table td {
+    padding: 10px 0;
+    border-bottom: 1px solid #2a2f38;
+}
