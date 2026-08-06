@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import MovieDetail from './pages/MovieDetail.jsx'
 import Profile from './pages/Profile.jsx'
+import Compatibility from './pages/Compatibility.jsx'
 import './style.css'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/movies/:id" element={<MovieDetail />} />
                 <Route path="/profile/:id" element={<Profile />} />
+                <Route path="/compatibility/:otherId" element={<Compatibility />} />
             </Routes>
         </div>
     )
