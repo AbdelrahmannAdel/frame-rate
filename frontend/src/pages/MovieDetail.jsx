@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
     getMovie,
     getMovieReviews,
@@ -149,7 +149,9 @@ function MovieDetail() {
                 <ul className="reviews-list">
                     {reviews.map((review) => (
                         <li key={review.id}>
-                            user #{review.userId} — <StarRating value={review.rating} size="small" />
+                            <Link to={`/profile/${review.userId}`}>user #{review.userId}</Link>
+                            {" — "}
+                            <StarRating value={review.rating} size="small" />
                         </li>
                     ))}
                 </ul>
