@@ -119,6 +119,10 @@ export function getUser(id) {
     return request(`/users/${id}`);
 }
 
+export function searchUsers(username) {
+    return request(`/users/search?username=${encodeURIComponent(username)}`);
+}
+
 export function getUserReviews(id) {
     return request(`/users/${id}/reviews`);
 }

@@ -148,5 +148,10 @@ public class UserService {
         return user;
     } // end of login()
 
+    public List<User> searchUsers(String username) throws SQLException {
+        UserRepository userRepository = new UserRepository();
+        return userRepository.findByUsernameContaining(connection, username);
+    } // end of searchUsers()
+
 
 } // end of class

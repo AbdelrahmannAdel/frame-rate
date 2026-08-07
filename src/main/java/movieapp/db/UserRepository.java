@@ -62,6 +62,12 @@ public class UserRepository {
         WHERE id = ?
     """;
 
+    private static final String SELECT_USERS_BY_USERNAME_CONTAINING = """
+        SELECT id, username, email, password_hash, created_at
+        FROM users
+        WHERE username ILIKE ?
+    """;
+
     // inserts a user into the users table
     public User create(Connection connection, String username, String email, String passwordHash) throws SQLException {
 
@@ -124,6 +130,20 @@ public class UserRepository {
         }
         return null;
     } // end of findByUsername()
+
+    public List<User> findByUsernameContaining(Connection connection, String username) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(SELECT_USERS_BY_USERNAME_CONTAINING)) {
+            ps.setString(1, "%" + username + "%");
+
+            try (ResultSet resultSet = ps.executeQuery()) {
+                List<User> usersList = new ArrayList<>();
+                while (resultSet.next()) {
+                    usersList.add(mapRow(resultSet));
+                }
+                return usersList;
+            }
+        }
+    } // end of findByUsernameContaining()
 
     // finds user by username
     public User findByEmail(Connection connection, String email) throws SQLException {

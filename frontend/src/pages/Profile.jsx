@@ -132,7 +132,13 @@ function Profile() {
             <div className="profile-header">
                 <h1>{profileUser.username}</h1>
                 <p className="meta">
-                    {followers.length} follower{followers.length !== 1 ? "s" : ""} · {following.length} following
+                    <Link to={`/profile/${id}/followers`}>
+                        {followers.length} follower{followers.length !== 1 ? "s" : ""}
+                    </Link>
+                    {" · "}
+                    <Link to={`/profile/${id}/following`}>
+                        {following.length} following
+                    </Link>
                 </p>
 
                 {!isOwnProfile && currentUser && (
@@ -157,61 +163,74 @@ function Profile() {
             <div className="profile-section">
                 <h2>ratings ({reviews.length})</h2>
                 {reviews.length === 0 && <p>no ratings yet.</p>}
-                <ul className="profile-list">
+                <div className="grid">
                     {reviews.map((r) => (
-                        <li key={r.id}>
-                            <span>
-                              <Link to={`/movies/${r.movie.id}`}>{r.movie.title}</Link>
-                                {" — "}
-                                <StarRating value={r.rating} size="small" />
-                            </span>
+                        <div key={r.id} className="card" onClick={() => navigate(`/movies/${r.movie.id}`)}>
+                            <div className="stamp">
+                                <b>{r.rating}</b>/10
+                            </div>
+                            {r.movie.posterPath ? (
+                                <img
+                                    className="poster-img"
+                                    src={`https://image.tmdb.org/t/p/w342${r.movie.posterPath}`}
+                                    alt={r.movie.title}
+                                />
+                            ) : (
+                                <div className="poster">{r.movie.title}</div>
+                            )}
+                            <div className="card-body">
+                                <p className="title">{r.movie.title}</p>
+                                <p className="meta">{r.movie.releaseYear}</p>
+                            </div>
                             {isOwnProfile && (
-                                <button className="remove-button" onClick={() => handleRemoveReview(r.movie.id, r.id)}>
+                                <button
+                                    className="remove-button card-remove"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveReview(r.movie.id, r.id);
+                                    }}
+                                >
                                     remove
                                 </button>
                             )}
-                        </li>
+                        </div>
                     ))}
-                </ul>
+                </div>
             </div>
 
             <div className="profile-section">
                 <h2>watchlist ({watchlist.length})</h2>
                 {watchlist.length === 0 && <p>watchlist is empty.</p>}
-                <ul className="profile-list">
+                <div className="grid">
                     {watchlist.map((w) => (
-                        <li key={w.id}>
-                            <Link to={`/movies/${w.movie.id}`}>{w.movie.title}</Link>
+                        <div key={w.id} className="card" onClick={() => navigate(`/movies/${w.movie.id}`)}>
+                            {w.movie.posterPath ? (
+                                <img
+                                    className="poster-img"
+                                    src={`https://image.tmdb.org/t/p/w342${w.movie.posterPath}`}
+                                    alt={w.movie.title}
+                                />
+                            ) : (
+                                <div className="poster">{w.movie.title}</div>
+                            )}
+                            <div className="card-body">
+                                <p className="title">{w.movie.title}</p>
+                                <p className="meta">{w.movie.releaseYear}</p>
+                            </div>
                             {isOwnProfile && (
-                                <button className="remove-button" onClick={() => handleRemoveFromWatchlist(w.id)}>
+                                <button
+                                    className="remove-button card-remove"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveFromWatchlist(w.id);
+                                    }}
+                                >
                                     remove
                                 </button>
                             )}
-                        </li>
+                        </div>
                     ))}
-                </ul>
-            </div>
-
-            <div className="profile-section">
-                <h2>following ({following.length})</h2>
-                <ul className="profile-list">
-                    {following.map((u) => (
-                        <li key={u.id}>
-                            <Link to={`/profile/${u.id}`}>{u.username}</Link>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-            <div className="profile-section">
-                <h2>followers ({followers.length})</h2>
-                <ul className="profile-list">
-                    {followers.map((u) => (
-                        <li key={u.id}>
-                            <Link to={`/profile/${u.id}`}>{u.username}</Link>
-                        </li>
-                    ))}
-                </ul>
+                </div>
             </div>
 
             {isOwnProfile && <SettingsSection user={profileUser} onUpdated={setProfileUser} logout={logout} />}

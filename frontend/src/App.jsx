@@ -6,6 +6,8 @@ import Register from './pages/Register.jsx'
 import MovieDetail from './pages/MovieDetail.jsx'
 import Profile from './pages/Profile.jsx'
 import Compatibility from './pages/Compatibility.jsx'
+import FollowList from './pages/FollowList.jsx'
+import UserSearch from './pages/UserSearch.jsx'
 import './style.css'
 
 function App() {
@@ -17,6 +19,7 @@ function App() {
                 <Link to="/" className="brand">Frame<span>Rate</span></Link>
 
                 <div className="nav-links">
+                    <Link to="/find-people">find people</Link>
                     {currentUser === undefined ? null : currentUser ? (
                         <Link to={`/profile/${currentUser.id}`}>{currentUser.username}</Link>
                     ) : (
@@ -34,7 +37,10 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/movies/:id" element={<MovieDetail />} />
                 <Route path="/profile/:id" element={<Profile />} />
+                <Route path="/profile/:id/following" element={<FollowList type="following" />} />
+                <Route path="/profile/:id/followers" element={<FollowList type="followers" />} />
                 <Route path="/compatibility/:otherId" element={<Compatibility />} />
+                <Route path="/find-people" element={<UserSearch />} />
             </Routes>
         </div>
     )

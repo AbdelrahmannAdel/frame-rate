@@ -149,7 +149,7 @@ function MovieDetail() {
                 <ul className="reviews-list">
                     {reviews.map((review) => (
                         <li key={review.id}>
-                            <Link to={`/profile/${review.userId}`}>user #{review.userId}</Link>
+                            <Link to={`/profile/${review.userId}`}>{review.username}</Link>
                             {" — "}
                             <StarRating value={review.rating} size="small" />
                         </li>

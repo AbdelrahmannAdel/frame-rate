@@ -14,6 +14,7 @@ import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
 import io.javalin.http.HandlerType;
 import io.javalin.http.UnauthorizedResponse;
+import io.javalin.http.BadRequestResponse;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
@@ -176,13 +177,13 @@ public class Main {
                 }
             });
 
-
             // GET /movies/{id}/reviews
             // Expects: path -> movie id
             // Returns: 200 +   [
             //                   {
             //                    "id":int,
             //                    "userId":int,
+            //                    "username":string,
             //                    "movieId":int,
             //                    "rating":int,
             //                    "createdAt":datetime
@@ -194,7 +195,45 @@ public class Main {
                 try (Connection conn = DatabaseConfig.getConnection()){
                     ReviewService reviewService = new ReviewService(conn);
                     List<Review> reviewsList = reviewService.getReviewsByMovie(id);
-                    ctx.json(reviewsList);
+
+                    UserRepository userRepository = new UserRepository();
+                    List<ReviewResponse> responseList = new ArrayList<>();
+                    for (Review review : reviewsList) {
+                        User user = userRepository.findById(conn, review.getUserId());
+                        responseList.add(new ReviewResponse(review, user.getUsername()));
+                    }
+
+                    ctx.json(responseList);
+                }
+            });
+
+            // GET /users/search?username=...
+            // Expects: query param -> username
+            // Returns: 200 +   [
+            //                   {
+            //                    "id":int,
+            //                    "username":string,
+            //                    "email":string,
+            //                    "createdAt":datetime
+            //                   }
+            //                  ]
+            // Throws: BadRequestResponse (400, if username param is missing)
+            config.routes.get("/users/search", ctx -> {
+                String username = ctx.queryParam("username");
+
+                if (username == null || username.isBlank())
+                    throw new BadRequestResponse("username query parameter is required");
+
+                try (Connection conn = DatabaseConfig.getConnection()) {
+                    UserService userService = new UserService(conn);
+                    List<User> users = userService.searchUsers(username);
+
+                    List<UserResponse> responseList = new ArrayList<>();
+                    for (User user : users) {
+                        responseList.add(new UserResponse(user));
+                    }
+
+                    ctx.json(responseList);
                 }
             });
 
