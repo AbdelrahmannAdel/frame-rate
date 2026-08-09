@@ -1,3 +1,9 @@
+:root {
+    --font-display: "Source Serif 4", Georgia, serif;
+    --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --font-mono: "Courier New", Courier, monospace;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -6,11 +12,16 @@ h1, h2, button, .nav-links a, label, input, textarea, button {
     text-transform: capitalize;
 }
 
+h1, h2, button, .nav-links a, label {
+    font-family: var(--font-display);
+    font-weight: 700;
+}
+
 body {
     margin: 0;
     background: #171a1f;
     color: #eee5cf;
-    font-family: "Courier New", Courier, monospace;
+    font-family: var(--font-body);
 }
 
 a {
@@ -34,6 +45,7 @@ nav {
 }
 
 .brand {
+    font-family: var(--font-mono);
     font-size: 26px;
     letter-spacing: 1px;
     color: #eee5cf;
@@ -59,7 +71,6 @@ button {
     color: #eee5cf;
     border: none;
     padding: 10px 18px;
-    font-family: "Courier New", monospace;
     font-size: 13px;
     letter-spacing: 0.5px;
     cursor: pointer;
@@ -94,8 +105,8 @@ button:disabled {
     background: #eee5cf;
     border: none;
     padding: 10px 14px;
-    font-family: "Courier New", monospace;
-    font-size: 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
     color: #2a2620;
 }
 
@@ -106,6 +117,7 @@ button:disabled {
 }
 
 .ledger-line {
+    font-family: var(--font-mono);
     font-size: 12px;
     color: #8b8674;
     margin-bottom: 24px;
@@ -122,8 +134,8 @@ button:disabled {
     background: #eee5cf;
     border: none;
     padding: 10px 14px;
-    font-family: "Courier New", monospace;
-    font-size: 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
     color: #2a2620;
 }
 
@@ -185,6 +197,7 @@ button:disabled {
     justify-content: center;
     flex-direction: column;
     transform: rotate(-8deg);
+    font-family: var(--font-mono);
     font-size: 10px;
     line-height: 1.1;
     text-align: center;
@@ -252,8 +265,8 @@ button:disabled {
     background: #eee5cf;
     border: none;
     padding: 8px 10px;
-    font-family: "Courier New", monospace;
-    font-size: 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
     color: #2a2620;
 }
 
@@ -322,8 +335,8 @@ button:disabled {
     background: #eee5cf;
     border: none;
     padding: 8px 12px;
-    font-family: "Courier New", monospace;
-    font-size: 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
     color: #2a2620;
     flex: 1;
     max-width: 300px;
@@ -356,6 +369,8 @@ button:disabled {
 }
 
 .compat-score {
+    font-family: var(--font-display);
+    font-weight: 700;
     font-size: 32px;
     color: #d9a441;
     margin: 12px 0 4px;
@@ -367,6 +382,8 @@ button:disabled {
     border-collapse: collapse;
 }
 .compat-table th {
+    font-family: var(--font-display);
+    font-weight: 700;
     text-align: left;
     font-size: 12px;
     color: #8b8674;
