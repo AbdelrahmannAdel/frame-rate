@@ -19,6 +19,8 @@ import io.javalin.http.BadRequestResponse;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
+import io.github.cdimascio.dotenv.Dotenv;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -27,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 
 public class Main {
+
+    private static final Dotenv dotenv = Dotenv.load();
+    private static final String FRONTEND_ORIGIN = dotenv.get("FRONTEND_ORIGIN");
+
     public static void main(String[] args) {
 
         Javalin app = Javalin.create(config -> {
@@ -41,7 +47,7 @@ public class Main {
             // even though the request actually reaches and is handled by this server.
             config.bundledPlugins.enableCors(cors -> {
                 cors.addRule(rule -> {
-                    rule.allowHost("http://localhost:5173");
+                    rule.allowHost(FRONTEND_ORIGIN);
                 });
             });
 
@@ -50,7 +56,7 @@ public class Main {
             // everything else requires a valid Bearer token, and stores the verified userId on ctx for routes to use.
             config.routes.before(ctx -> {
 
-                ctx.header("Access-Control-Allow-Origin", "http://localhost:5173");
+                ctx.header("Access-Control-Allow-Origin", FRONTEND_ORIGIN);
 
                 // preflight requests (OPTIONS) never carry an Authorization header.
                 // browsers send them automatically before certain cross-origin requests,
