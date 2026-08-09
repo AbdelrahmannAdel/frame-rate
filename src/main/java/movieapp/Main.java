@@ -33,6 +33,52 @@ public class Main {
     private static final Dotenv dotenv = Dotenv.load();
     private static final String FRONTEND_ORIGIN = dotenv.get("FRONTEND_ORIGIN");
 
+    private record PublicRoute(HandlerType method, String pathPattern) {}
+
+    private static final List<PublicRoute> PUBLIC_ROUTES = List.of(
+            new PublicRoute(HandlerType.GET, "/"),
+            new PublicRoute(HandlerType.GET, "/movies"),
+            new PublicRoute(HandlerType.GET, "/movies/search"),
+            new PublicRoute(HandlerType.GET, "/movies/top-rated"),
+            new PublicRoute(HandlerType.GET, "/movies/{id}"),
+            new PublicRoute(HandlerType.GET, "/movies/{id}/reviews"),
+            new PublicRoute(HandlerType.GET, "/users/search"),
+            new PublicRoute(HandlerType.GET, "/users/{id}"),
+            new PublicRoute(HandlerType.GET, "/users/{id}/reviews"),
+            new PublicRoute(HandlerType.GET, "/users/{id}/watchlist"),
+            new PublicRoute(HandlerType.GET, "/users/{id}/following"),
+            new PublicRoute(HandlerType.GET, "/users/{id}/followers"),
+            new PublicRoute(HandlerType.POST, "/users"),
+            new PublicRoute(HandlerType.POST, "/login")
+            // NOTE: /users/compatibility/{otherId} is deliberately NOT here —
+            // it's a GET route but genuinely needs to know who's asking, so it
+            // requires auth like everything else not on this list.
+    );
+
+    private static boolean pathMatches(String pattern, String actualPath) {
+        String[] patternSegments = pattern.split("/");
+        String[] actualSegments = actualPath.split("/");
+
+        if (patternSegments.length != actualSegments.length)
+            return false;
+
+        for (int i = 0; i < patternSegments.length; i++) {
+            boolean isWildcardSegment = patternSegments[i].startsWith("{") && patternSegments[i].endsWith("}");
+
+            if (!isWildcardSegment && !patternSegments[i].equals(actualSegments[i]))
+                return false;
+        }
+        return true;
+    } // end of pathMatches()
+
+    private static boolean isPublicRoute(HandlerType method, String path) {
+        for (PublicRoute route : PUBLIC_ROUTES) {
+            if (route.method() == method && pathMatches(route.pathPattern(), path))
+                return true;
+        }
+        return false;
+    } // end of isPublicRoute()
+
     public static void main(String[] args) {
 
         Javalin app = Javalin.create(config -> {
@@ -63,15 +109,9 @@ public class Main {
                 // and they must be allowed through so the CORS plugin can respond to them
                 if (ctx.method() == HandlerType.OPTIONS) return;
 
-                // compatibility is a GET route, but unlike every other GET, it needs to know
-                // who is asking (the token supplies userId) so it's a deliberate exception
-                // to the "all GETs are public" rule
-                boolean isCompatibilityRoute = ctx.path().startsWith("/users/compatibility/");
-
-                // allow these through without a token
-                if (ctx.method() == HandlerType.GET && !isCompatibilityRoute) return;
-                if (ctx.path().equals("/users") && ctx.method() == HandlerType.POST) return;
-                if (ctx.path().equals("/login")) return;
+                // explicit allow-list, checked against method + path pattern
+                // anything not on that list requires a valid token by default
+                if (isPublicRoute(ctx.method(), ctx.path())) return;
 
                 // everything else requires a valid token
 
