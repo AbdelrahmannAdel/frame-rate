@@ -1,0 +1,139 @@
+### =========================================================
+### UserResponse email-visibility fix (soft auth on GET /users/{id})
+### Run these IN ORDER, top to bottom.
+###
+### If you re-run this file a second time, step 1/2 will fail with
+### DuplicateUsernameException/DuplicateEmailException since the
+### usernames/emails are hardcoded -- just tweak them (e.g. alice_evis2)
+### and rerun from the top.
+###
+### What we're proving:
+###   1. Anonymous caller  -> GET /users/{id} -> NO email field at all
+###   2. Caller's own id   -> GET /users/{id} -> email IS present
+###   3. Caller viewing someone else's id, WITH a valid token attached
+###      -> still NO email field (this is the actual point of the fix --
+###      a valid token alone must not leak someone else's email)
+### =========================================================
+
+### 1. Register user A (Alice)
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "alice_evis",
+  "email": "alice_evis@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("tokenA", response.body.token);
+client.global.set("userIdA", response.body.user.id);
+
+client.test("register response includes email (it's always your own account)", function() {
+    client.assert(response.body.user.email === "alice_evis@example.com", "expected email in register response");
+});
+%}
+
+
+### 2. Register user B (Bob)
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "bob_evis",
+  "email": "bob_evis@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("tokenB", response.body.token);
+client.global.set("userIdB", response.body.user.id);
+%}
+
+
+### 3. Anonymous GET of Alice's profile (no Authorization header at all)
+### Expect: 200 + NO "email" key in the JSON body whatsoever
+###         (NOT "email": null -- the key should be fully absent,
+###          thanks to @JsonInclude(NON_NULL))
+GET http://localhost:8080/users/{{userIdA}}
+
+> {%
+client.test("anonymous caller gets no email field", function() {
+    client.assert(response.body.email === undefined, "email should be completely absent for an anonymous caller, got: " + JSON.stringify(response.body.email));
+});
+client.test("anonymous caller still gets username/id/createdAt", function() {
+    client.assert(response.body.username === "alice_evis", "expected username to still be present");
+    client.assert(response.body.id === client.global.get("userIdA"), "expected id to still be present");
+});
+%}
+
+
+### 4. Alice views her OWN profile, with her own valid token attached
+### Expect: 200 + "email":"alice_evis@example.com" IS present
+GET http://localhost:8080/users/{{userIdA}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("caller viewing their own profile gets their email back", function() {
+    client.assert(response.body.email === "alice_evis@example.com", "expected Alice's email when Alice requests her own profile, got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 5. Bob views ALICE's profile, with Bob's own valid token attached
+### THIS IS THE KEY TEST -- a real, valid, logged-in token is present,
+### but it belongs to a DIFFERENT user than the one being viewed.
+### Expect: 200 + NO "email" key at all (proves the id-match check works,
+### not just "is any token present")
+GET http://localhost:8080/users/{{userIdA}}
+Authorization: Bearer {{tokenB}}
+
+> {%
+client.test("a valid token for a DIFFERENT user does not leak the profile owner's email", function() {
+    client.assert(response.body.email === undefined, "email should be absent when the caller's token doesn't match the profile being viewed, got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 6. Sanity check the mirror case: Bob views his OWN profile with his own token
+### Expect: 200 + "email":"bob_evis@example.com" IS present
+GET http://localhost:8080/users/{{userIdB}}
+Authorization: Bearer {{tokenB}}
+
+> {%
+client.test("Bob viewing his own profile gets his own email back", function() {
+    client.assert(response.body.email === "bob_evis@example.com", "expected Bob's email when Bob requests his own profile, got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 7. Malformed/garbage token on GET /users/{id} -- this route is PUBLIC,
+### so a bad token should NOT cause a 401. It should be silently ignored
+### (soft auth swallows JWTVerificationException) and just omit email,
+### same as the fully-anonymous case in step 3.
+### Expect: 200 (NOT 401) + NO "email" key
+GET http://localhost:8080/users/{{userIdA}}
+Authorization: Bearer this.is.not.a.real.jwt
+
+> {%
+client.test("malformed token on a public route does not cause a 401", function() {
+    client.assert(response.status === 200, "expected 200 even with a garbage token on this public route, got: " + response.status);
+});
+client.test("malformed token still results in no email leak", function() {
+    client.assert(response.body.email === undefined, "email should be absent, got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 8. Sanity check: GET /users/search still never includes email,
+### regardless of who's asking (Alice searching, with her own valid token)
+GET http://localhost:8080/users/search?username=evis
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("search results never include email, even for the searcher's own account showing up in results", function() {
+    for (const user of response.body) {
+        client.assert(user.email === undefined, "search result for " + user.username + " should not include email, got: " + JSON.stringify(user.email));
+    }
+});
+%}

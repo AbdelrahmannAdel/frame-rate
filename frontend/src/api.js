@@ -35,11 +35,16 @@ export function getUserIdFromToken() {
     }
 }
 
-async function request(path, { method = "GET", body, auth = false } = {}) {
+async function request(path, { method = "GET", body, auth = false, optionalAuth = false } = {}) {
     const headers = { "Content-Type": "application/json" };
 
     if (auth) {
         headers["Authorization"] = "Bearer " + getToken();
+    } else if (optionalAuth) {
+        const token = getToken();
+        if (token) {
+            headers["Authorization"] = "Bearer " + token;
+        }
     }
 
     const response = await fetch(API_BASE + path, {
@@ -116,7 +121,7 @@ export function removeFromWatchlist(entryId) {
 
 // ---- users / profile ----
 export function getUser(id) {
-    return request(`/users/${id}`);
+    return request(`/users/${id}`, { optionalAuth: true });
 }
 
 export function searchUsers(username) {

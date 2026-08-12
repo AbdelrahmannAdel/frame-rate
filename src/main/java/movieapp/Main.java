@@ -104,32 +104,32 @@ public class Main {
 
                 ctx.header("Access-Control-Allow-Origin", FRONTEND_ORIGIN);
 
-                // preflight requests (OPTIONS) never carry an Authorization header.
-                // browsers send them automatically before certain cross-origin requests,
-                // and they must be allowed through so the CORS plugin can respond to them
                 if (ctx.method() == HandlerType.OPTIONS) return;
 
-                // explicit allow-list, checked against method + path pattern
-                // anything not on that list requires a valid token by default
+                // soft auth: if a valid Bearer token is present, decode it and store the
+                // userId regardless of whether this route requires auth. Invalid/missing
+                // tokens are silently ignored here (no throw) -- routes that actually
+                // require auth still enforce that below via isPublicRoute().
+                String authHeader = ctx.header("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    try {
+                        String token = authHeader.substring(7);
+                        DecodedJWT decodedJWT = JwtService.verifyToken(token);
+                        int userId = decodedJWT.getClaim("userId").asInt();
+                        ctx.attribute("userId", userId);
+                    } catch (JWTVerificationException e) {
+                        // invalid/expired token on an otherwise-public request -- ignore
+                        // and proceed as anonymous, rather than rejecting the request
+                    }
+                }
+
                 if (isPublicRoute(ctx.method(), ctx.path())) return;
 
-                // everything else requires a valid token
-
-                // reads the Authorization HTTP header
-                // format of header is:
-                // Authorization: Bearer <Token>
-                String authHeader = ctx.header("Authorization");
-
-                // if no authorization header or it doesn't match 'Authorization: Bearer'
-                if (authHeader == null || !authHeader.startsWith("Bearer "))
+                // everything past this point still requires a *valid* token --
+                // re-check explicitly, since the soft-auth block above swallows
+                // JWTVerificationException instead of letting it propagate
+                if (ctx.attribute("userId") == null)
                     throw new UnauthorizedResponse("Missing or invalid Authorization header");
-
-                String token = authHeader.substring(7);           // strip "Bearer " prefix
-                DecodedJWT decodedJWT = JwtService.verifyToken(token);      // verify the token
-                int userId = decodedJWT.getClaim("userId").asInt();   // extract userId from the token
-
-                // store the verified userId on the context object
-                ctx.attribute("userId", userId);
             });
 
             // ================ GET ROUTES ================
@@ -259,7 +259,6 @@ public class Main {
             //                   {
             //                    "id":int,
             //                    "username":string,
-            //                    "email":string,
             //                    "createdAt":datetime
             //                   }
             //                  ]
@@ -276,7 +275,7 @@ public class Main {
 
                     List<UserResponse> responseList = new ArrayList<>();
                     for (User user : users) {
-                        responseList.add(new UserResponse(user));
+                        responseList.add(new UserResponse(user,false));
                     }
 
                     ctx.json(responseList);
@@ -288,15 +287,21 @@ public class Main {
             // Returns: 200 +   {
             //                   "id":int,
             //                   "username":string,
-            //                   "email":string,
+            //                   "email":string,     -- only present if viewing your own profile
             //                   "createdAt":datetime
             //                  }
             config.routes.get("/users/{id}", ctx -> {
                 int id = Integer.parseInt(ctx.pathParam("id"));
 
+                // soft auth: userId is only set if a valid token was sent
+                // this route is public, so an anonymous caller or a caller viewing someone
+                // else's profile should not get the email field back.
+                Integer callerId = (Integer) ctx.attribute("userId");
+                boolean includeEmail = callerId != null && callerId == id;
+
                 try (Connection conn = DatabaseConfig.getConnection()) {
                     UserService userService = new UserService(conn);
-                    UserResponse userResponse = new UserResponse(userService.getUserById(id));
+                    UserResponse userResponse = new UserResponse(userService.getUserById(id), includeEmail);
                     ctx.json(userResponse);
                 }
             });
@@ -349,7 +354,6 @@ public class Main {
             //                   {
             //                    "id":int,
             //                    "username":string,
-            //                    "email":string,
             //                    "createdAt":datetime
             //                   }
             //                  ]
@@ -362,7 +366,7 @@ public class Main {
 
                     List<UserResponse> responseList = new ArrayList<>();
                     for (User user : followingList) {
-                        responseList.add(new UserResponse(user));
+                        responseList.add(new UserResponse(user,false));
                     }
 
                     ctx.json(responseList);
@@ -375,7 +379,6 @@ public class Main {
             //                   {
             //                    "id":int,
             //                    "username":string,
-            //                    "email":string,
             //                    "createdAt":datetime
             //                   }
             //                  ]
@@ -388,7 +391,7 @@ public class Main {
 
                     List<UserResponse> responseList = new ArrayList<>();
                     for (User user : followersList) {
-                        responseList.add(new UserResponse(user));
+                        responseList.add(new UserResponse(user,false));
                     }
 
                     ctx.json(responseList);
@@ -458,7 +461,7 @@ public class Main {
                 try (Connection conn = DatabaseConfig.getConnection()) {
                     UserService userService = new UserService(conn);
                     User user = userService.registerUser(request.getUsername(), request.getEmail(), hashedPassword);
-                    UserResponse userResponse = new UserResponse(user);
+                    UserResponse userResponse = new UserResponse(user,true);
                     String token = JwtService.generateToken(user.getId());
                     ctx.status(201).json(Map.of("user", userResponse, "token", token));
                 }
@@ -590,7 +593,7 @@ public class Main {
                 try (Connection conn = DatabaseConfig.getConnection()){
                     UserService userService = new UserService(conn);
                     User user = userService.updateUsername(userId, request.getUsername());
-                    UserResponse userResponse = new UserResponse(user);
+                    UserResponse userResponse = new UserResponse(user, true);
                     ctx.status(200).json(userResponse);
                 }
             });
@@ -611,7 +614,7 @@ public class Main {
                 try (Connection conn = DatabaseConfig.getConnection()){
                     UserService userService = new UserService(conn);
                     User updatedUser = userService.updateEmail(userId, request.getEmail());
-                    UserResponse userResponse = new UserResponse(updatedUser);
+                    UserResponse userResponse = new UserResponse(updatedUser, true);
                     ctx.status(200).json(userResponse);
                 }
             });
@@ -635,7 +638,7 @@ public class Main {
                 try (Connection conn = DatabaseConfig.getConnection()){
                     UserService userService = new UserService(conn);
                     User updatedUser = userService.updatePassword(userId, hashedPassword);
-                    UserResponse userResponse = new UserResponse(updatedUser);
+                    UserResponse userResponse = new UserResponse(updatedUser, true);
                     ctx.status(200).json(userResponse);
                 }
             });
@@ -735,7 +738,6 @@ public class Main {
             config.routes.exception(SQLException.class, (e, ctx) -> ctx.status(500).result("Database error: " + e.getMessage()));
             config.routes.exception(NumberFormatException.class, (e, ctx) -> ctx.status(400).result("Invalid number format: " + e.getMessage()));
             config.routes.exception(InvalidCredentialsException.class, (e, ctx) -> ctx.status(401).result(e.getMessage()));
-            config.routes.exception(JWTVerificationException.class, (e, ctx) -> ctx.status(401).result("Invalid or expired token"));
             config.routes.exception(java.io.IOException.class, (e, ctx) -> ctx.status(502).result("Failed to reach TMDB: " + e.getMessage()));
             config.routes.exception(InterruptedException.class, (e, ctx) -> ctx.status(502).result("Request to TMDB was interrupted: " + e.getMessage()));
             config.routes.exception(NotMutualFollowException.class, (e, ctx) -> ctx.status(403).result(e.getMessage()));
