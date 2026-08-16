@@ -20,6 +20,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import org.flywaydb.core.Flyway;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -32,6 +33,9 @@ public class Main {
 
     private static final Dotenv dotenv = Dotenv.load();
     private static final String FRONTEND_ORIGIN = dotenv.get("FRONTEND_ORIGIN");
+    private static final String DB_URL = dotenv.get("DB_URL");
+    private static final String DB_USER = dotenv.get("DB_USER");
+    private static final String DB_PASSWORD = dotenv.get("DB_PASSWORD");
 
     private record PublicRoute(HandlerType method, String pathPattern) {}
 
@@ -50,7 +54,7 @@ public class Main {
             new PublicRoute(HandlerType.GET, "/users/{id}/followers"),
             new PublicRoute(HandlerType.POST, "/users"),
             new PublicRoute(HandlerType.POST, "/login")
-            // NOTE: /users/compatibility/{otherId} is deliberately NOT here —
+            // NOTE: /users/compatibility/{otherId} is deliberately NOT here,
             // it's a GET route but genuinely needs to know who's asking, so it
             // requires auth like everything else not on this list.
     );
@@ -80,6 +84,16 @@ public class Main {
     } // end of isPublicRoute()
 
     public static void main(String[] args) {
+
+        // runs any pending Flyway migrations against the database before the app starts
+        // accepting requests. Flyway tracks which migrations have already been applied
+        // (in its own flyway_schema_history table) and only runs new ones, in version
+        // order -- this replaces SchemaInitializer's CREATE TABLE IF NOT EXISTS approach.
+        Flyway flyway = Flyway.configure()
+                .dataSource(DB_URL, DB_USER, DB_PASSWORD)
+                .baselineOnMigrate(true)
+                .load();
+        flyway.migrate();
 
         Javalin app = Javalin.create(config -> {
 
