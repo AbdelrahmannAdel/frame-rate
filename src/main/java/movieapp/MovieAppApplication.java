@@ -8,6 +8,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class MovieAppApplication {
 
     public static void main(String[] args) {
+
+        // load env variables to system properties
         Dotenv.configure()
                 .systemProperties()
                 .load();

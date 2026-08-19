@@ -1,5 +1,8 @@
 package movieapp.service;
 
+import movieapp.api.TmdbClient;
+import movieapp.api.dto.TmdbMovieDetails;
+import movieapp.api.dto.TmdbMovieResult;
 import movieapp.exception.DuplicateMovieException;
 import movieapp.exception.NotFoundException;
 import movieapp.model.Movie;
@@ -12,6 +15,7 @@ import movieapp.repository.WatchlistEntryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,13 +25,16 @@ public class MovieService {
     private final MovieRepository movieRepository;
     private final ReviewRepository reviewRepository;
     private final WatchlistEntryRepository watchlistEntryRepository;
+    private final TmdbClient tmdbClient;
 
     public MovieService(MovieRepository movieRepository,
                         ReviewRepository reviewRepository,
-                        WatchlistEntryRepository watchlistEntryRepository) {
+                        WatchlistEntryRepository watchlistEntryRepository,
+                        TmdbClient tmdbClient) {
         this.movieRepository = movieRepository;
         this.reviewRepository = reviewRepository;
         this.watchlistEntryRepository = watchlistEntryRepository;
+        this.tmdbClient = tmdbClient;
     }
 
     public Movie createMovie(int tmdbId, String title, Integer releaseYear, String posterPath,
@@ -86,8 +93,50 @@ public class MovieService {
         return ratedMovies;
     } // end of getTopRatedMovies()
 
-    // searchAndImport(title) and importByTmdbId(tmdbId) INTENTIONALLY OMITTED --
-    // both depend on movieapp.api.TmdbClient / TmdbMovieMapper / the TMDB DTOs,
-    // none of which exist on this branch yet. Add once the api package is ported.
+    public Movie searchAndImport(String title)
+            throws IOException, InterruptedException, DuplicateMovieException {
+
+        List<TmdbMovieResult> movieResults = tmdbClient.parseSearchResults(tmdbClient.searchMovies(title));
+
+        TmdbMovieResult firstResult = movieResults.getFirst();
+
+        TmdbMovieDetails movieDetails = tmdbClient.parseMovieDetails(tmdbClient.getMovieDetails(firstResult.getTmdbId()));
+
+        Integer releaseYear = null;
+        if (firstResult.getReleaseDate() != null && firstResult.getReleaseDate().length() >= 4)
+            releaseYear = Integer.parseInt(firstResult.getReleaseDate().substring(0, 4));
+
+        return createMovie(
+                firstResult.getTmdbId(),
+                firstResult.getTitle(),
+                releaseYear,
+                firstResult.getPosterPath(),
+                firstResult.getOverview(),
+                movieDetails.getRuntime()
+        );
+    } // end of searchAndImport()
+
+    public Movie importByTmdbId(int tmdbId)
+            throws IOException, InterruptedException, DuplicateMovieException {
+
+        Movie existing = movieRepository.findByTmdbId(tmdbId).orElse(null);
+        if (existing != null)
+            return existing;
+
+        TmdbMovieDetails details = tmdbClient.parseMovieDetails(tmdbClient.getMovieDetails(tmdbId));
+
+        Integer releaseYear = null;
+        if (details.getReleaseDate() != null && details.getReleaseDate().length() >= 4)
+            releaseYear = Integer.parseInt(details.getReleaseDate().substring(0, 4));
+
+        return createMovie(
+                details.getTmdbId(),
+                details.getTitle(),
+                releaseYear,
+                details.getPosterPath(),
+                details.getOverview(),
+                details.getRuntime()
+        );
+    } // end of importByTmdbId()
 
 } // end of class
