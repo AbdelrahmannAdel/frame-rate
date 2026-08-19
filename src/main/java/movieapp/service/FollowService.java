@@ -7,6 +7,7 @@ import movieapp.model.User;
 import movieapp.repository.FollowRepository;
 import movieapp.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +50,7 @@ public class FollowService {
         return true;
     } // end of unfollowUser()
 
+    @Transactional(readOnly = true)
     public List<User> getFollowing(int userId) throws NotFoundException {
         if (userRepository.findById(userId).isEmpty())
             throw new NotFoundException("No user found with id: " + userId);
@@ -57,8 +59,9 @@ public class FollowService {
         for (Follow follow : followRepository.findByFollower_Id(userId))
             users.add(follow.getFollowee());
         return users;
-    } // end of getFollowing()
+    }
 
+    @Transactional(readOnly = true)
     public List<User> getFollowers(int userId) throws NotFoundException {
         if (userRepository.findById(userId).isEmpty())
             throw new NotFoundException("No user found with id: " + userId);
