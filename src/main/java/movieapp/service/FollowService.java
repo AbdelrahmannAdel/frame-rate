@@ -56,8 +56,12 @@ public class FollowService {
             throw new NotFoundException("No user found with id: " + userId);
 
         List<User> users = new ArrayList<>();
-        for (Follow follow : followRepository.findByFollower_Id(userId))
-            users.add(follow.getFollowee());
+        for (Follow follow : followRepository.findByFollower_Id(userId)) {
+            int followeeId = follow.getFollowee().getId();
+            User followee = userRepository.findById(followeeId)
+                    .orElseThrow(() -> new NotFoundException("No user found with id: " + followeeId));
+            users.add(followee);
+        }
         return users;
     }
 
@@ -67,8 +71,12 @@ public class FollowService {
             throw new NotFoundException("No user found with id: " + userId);
 
         List<User> users = new ArrayList<>();
-        for (Follow follow : followRepository.findByFollowee_Id(userId))
-            users.add(follow.getFollower());
+        for (Follow follow : followRepository.findByFollowee_Id(userId)) {
+            int followerId = follow.getFollower().getId();
+            User follower = userRepository.findById(followerId)
+                    .orElseThrow(() -> new NotFoundException("No user found with id: " + followerId));
+            users.add(follower);
+        }
         return users;
     } // end of getFollowers()
 

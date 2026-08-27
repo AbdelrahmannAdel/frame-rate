@@ -1,0 +1,785 @@
+### =========================================================
+### FULL API TEST SUITE — Spring Boot rewrite (spring-boot-jpa branch)
+### Consolidates auth-routes-testing.http + compatibility-testing.http +
+### user-email-visibility-testing.http into one file, run top to bottom.
+###
+### If re-running a second time, the register steps will fail with
+### DuplicateUsernameException/DuplicateEmailException since usernames/
+### emails are hardcoded — bump every "_v1" below to "_v2" and rerun.
+###
+### NOTE ON AUTH FAILURE STATUS CODE: the old Javalin app explicitly threw
+### 401 for missing/invalid auth. This Spring Security config has no
+### explicit AuthenticationEntryPoint configured, so it's genuinely
+### uncertain whether an unauthenticated request to a protected route
+### comes back 401 or 403 here — the tests below RECORD the actual status
+### rather than hard-asserting 401, so you can see what really happens.
+### =========================================================
+
+
+### =========================================================
+### PART 0 — SETUP: users, a movie, a review, a watchlist entry
+### =========================================================
+
+### 0.1 Register user A
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "alice_v1",
+  "email": "alice_v1@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("tokenA", response.body.token);
+client.global.set("userIdA", response.body.user.id);
+client.test("register returns 201", function() { client.assert(response.status === 201, "expected 201, got " + response.status); });
+client.test("register includes email (own account)", function() { client.assert(response.body.user.email === "alice_v1@example.com"); });
+%}
+
+
+### 0.2 Register user B
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "bob_v1",
+  "email": "bob_v1@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("tokenB", response.body.token);
+client.global.set("userIdB", response.body.user.id);
+%}
+
+
+### 0.3 Register user C (used for non-mutual-follow rejection test)
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "charlie_v1",
+  "email": "charlie_v1@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("tokenC", response.body.token);
+client.global.set("userIdC", response.body.user.id);
+%}
+
+
+### 0.4 Register user D (used for the zero-shared-movies compatibility case)
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "dana_v1",
+  "email": "dana_v1@example.com",
+  "password": "password123"
+}
+
+> {%
+client.global.set("tokenD", response.body.token);
+client.global.set("userIdD", response.body.user.id);
+%}
+
+
+### 0.5 Import a real movie (Inception, tmdbId 27205) — protected route
+POST http://localhost:8080/movies/import
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "tmdbId": 27205
+}
+
+> {%
+client.global.set("movieId", response.body.id);
+client.test("import returns 201", function() { client.assert(response.status === 201); });
+%}
+
+
+### 0.6 A reviews the movie
+POST http://localhost:8080/movies/{{movieId}}/reviews
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "rating": 9
+}
+
+> {%
+client.global.set("reviewIdA", response.body.id);
+client.test("review has resolved username", function() { client.assert(response.body.username === "alice_v1"); });
+%}
+
+
+### 0.7 A adds the movie to their watchlist
+POST http://localhost:8080/users/watchlist
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "movieId": {{movieId}}
+}
+
+> {%
+client.global.set("watchlistEntryId", response.body.id);
+%}
+
+
+### =========================================================
+### PART 1 — PUBLIC ROUTES, NO TOKEN SENT (must all succeed)
+### =========================================================
+
+### 1.1 GET /movies
+GET http://localhost:8080/movies
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+%}
+
+
+### 1.2 GET /movies/search — must not be swallowed by /movies/{id}
+GET http://localhost:8080/movies/search?title=inception
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+client.test("returns TMDB shape (id, poster_path, release_date)", function() {
+    client.assert(response.body.length > 0);
+    client.assert(response.body[0].id !== undefined, "expected snake_case/raw 'id' field per @JsonProperty");
+});
+%}
+
+
+### 1.3 GET /movies/top-rated — must not be swallowed by /movies/{id}
+GET http://localhost:8080/movies/top-rated
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+client.test("includes our reviewed movie at averageRating 9.0", function() {
+    const entry = response.body.find(e => e.movie.id === client.global.get("movieId"));
+    client.assert(entry !== undefined, "expected the imported movie in top-rated");
+    client.assert(entry.averageRating === 9, "expected averageRating 9, got " + entry.averageRating);
+});
+%}
+
+
+### 1.4 GET /movies/{id}
+GET http://localhost:8080/movies/{{movieId}}
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+%}
+
+
+### 1.5 GET /movies/{id}/reviews — resolved username, not raw userId
+GET http://localhost:8080/movies/{{movieId}}/reviews
+
+> {%
+client.test("200 + username resolved", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body[0].username === "alice_v1");
+});
+%}
+
+
+### 1.6 GET /users/search — must not be swallowed by /users/{id}
+GET http://localhost:8080/users/search?username=_v1
+
+> {%
+client.test("200 + no email leaked in search results", function() {
+    client.assert(response.status === 200);
+    for (const u of response.body) {
+        client.assert(u.email === undefined, "search results must never include email");
+    }
+});
+%}
+
+
+### 1.7 GET /users/{id} — anonymous, no token
+GET http://localhost:8080/users/{{userIdA}}
+
+> {%
+client.test("200 + no email key at all (not null, fully absent)", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.email === undefined, "got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 1.8 GET /users/{id}/reviews
+GET http://localhost:8080/users/{{userIdA}}/reviews
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+%}
+
+
+### 1.9 GET /users/{id}/watchlist
+GET http://localhost:8080/users/{{userIdA}}/watchlist
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+%}
+
+
+### 1.10 GET /users/{id}/following (empty so far)
+GET http://localhost:8080/users/{{userIdA}}/following
+
+> {%
+client.test("200 + empty array", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.length === 0);
+});
+%}
+
+
+### 1.11 GET /users/{id}/followers (empty so far)
+GET http://localhost:8080/users/{{userIdA}}/followers
+
+> {%
+client.test("200 + empty array", function() { client.assert(response.status === 200); });
+%}
+
+
+### 1.12 OPTIONS preflight on a protected route — must never require auth
+OPTIONS http://localhost:8080/users/compatibility/{{userIdB}}
+
+> {%
+client.test("not 401/403 — preflight must pass through untouched", function() {
+    client.assert(response.status !== 401 && response.status !== 403, "got " + response.status);
+});
+%}
+
+
+### =========================================================
+### PART 2 — EMAIL VISIBILITY (soft auth on GET /users/{id})
+### =========================================================
+
+### 2.1 A views their OWN profile, with A's token — email present
+GET http://localhost:8080/users/{{userIdA}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("email present for own profile", function() {
+    client.assert(response.body.email === "alice_v1@example.com", "got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 2.2 B views A's profile, WITH B's own valid token — email must NOT leak
+### (the real point of soft auth: a valid token alone isn't enough, it
+### has to match the profile being viewed)
+GET http://localhost:8080/users/{{userIdA}}
+Authorization: Bearer {{tokenB}}
+
+> {%
+client.test("a different user's valid token does not leak the owner's email", function() {
+    client.assert(response.body.email === undefined, "got: " + JSON.stringify(response.body.email));
+});
+%}
+
+
+### 2.3 Malformed/garbage token on a PUBLIC route — must NOT 401,
+### just silently fall back to anonymous (soft auth swallows bad tokens)
+GET http://localhost:8080/users/{{userIdA}}
+Authorization: Bearer this.is.not.a.real.jwt
+
+> {%
+client.test("still 200, not 401, on a public route with a garbage token", function() {
+    client.assert(response.status === 200, "got " + response.status);
+});
+client.test("no email leak", function() { client.assert(response.body.email === undefined); });
+%}
+
+
+### =========================================================
+### PART 3 — PROTECTED ROUTES, NO TOKEN SENT
+### Record the actual status — see NOTE at top of file re: 401 vs 403
+### =========================================================
+
+### 3.1 POST /movies/import — no token
+POST http://localhost:8080/movies/import
+Content-Type: application/json
+
+{
+  "tmdbId": 155
+}
+
+> {%
+client.test("rejected (401 or 403 — recording actual)", function() {
+    console.log("POST /movies/import with no token -> status " + response.status);
+    client.assert(response.status === 401 || response.status === 403, "expected an auth rejection, got " + response.status);
+});
+%}
+
+
+### 3.2 POST /movies/{id}/reviews — no token
+POST http://localhost:8080/movies/{{movieId}}/reviews
+Content-Type: application/json
+
+{
+  "rating": 5
+}
+
+> {%
+client.test("rejected", function() {
+    console.log("status " + response.status);
+    client.assert(response.status === 401 || response.status === 403);
+});
+%}
+
+
+### 3.3 POST /users/watchlist — no token
+POST http://localhost:8080/users/watchlist
+Content-Type: application/json
+
+{
+  "movieId": {{movieId}}
+}
+
+> {%
+client.test("rejected", function() { client.assert(response.status === 401 || response.status === 403); });
+%}
+
+
+### 3.4 POST /users/following — no token
+POST http://localhost:8080/users/following
+Content-Type: application/json
+
+{
+  "followeeId": {{userIdB}}
+}
+
+> {%
+client.test("rejected", function() { client.assert(response.status === 401 || response.status === 403); });
+%}
+
+
+### 3.5 PUT /users/username — no token
+PUT http://localhost:8080/users/username
+Content-Type: application/json
+
+{
+  "username": "should_not_work"
+}
+
+> {%
+client.test("rejected", function() { client.assert(response.status === 401 || response.status === 403); });
+%}
+
+
+### 3.6 DELETE /users/watchlist/{entryId} — no token
+### (entryId can be bogus — proves auth is checked before the lookup)
+DELETE http://localhost:8080/users/watchlist/999999
+
+> {%
+client.test("rejected, not 404 — proves auth runs before the route logic", function() {
+    client.assert(response.status === 401 || response.status === 403, "got " + response.status);
+});
+%}
+
+
+### 3.7 GET /users/compatibility/{otherId} — the one GET route that needs auth
+GET http://localhost:8080/users/compatibility/{{userIdB}}
+
+> {%
+client.test("rejected", function() {
+    console.log("compatibility with no token -> status " + response.status);
+    client.assert(response.status === 401 || response.status === 403);
+});
+%}
+
+
+### =========================================================
+### PART 4 — PROTECTED ROUTES, WITH A VALID TOKEN (spot checks)
+### =========================================================
+
+### 4.1 PUT /users/username — with token
+PUT http://localhost:8080/users/username
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "username": "alice_v1_renamed"
+}
+
+> {%
+client.test("200 + updated", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.username === "alice_v1_renamed");
+});
+%}
+
+
+### 4.2 PUT /users/email — with token
+PUT http://localhost:8080/users/email
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "email": "alice_v1_renamed@example.com"
+}
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+%}
+
+
+### 4.3 PUT /users/password — with token
+PUT http://localhost:8080/users/password
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "password": "newpassword456"
+}
+
+> {%
+client.test("200", function() { client.assert(response.status === 200); });
+%}
+
+
+### 4.4 PUT /movies/{id}/reviews/{reviewId} — with token
+PUT http://localhost:8080/movies/{{movieId}}/reviews/{{reviewIdA}}
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "rating": 8
+}
+
+> {%
+client.test("200 + rating updated", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.rating === 8);
+});
+%}
+
+
+### =========================================================
+### PART 5 — VALIDATION / DUPLICATE / OWNERSHIP ERROR PATHS
+### =========================================================
+
+### 5.1 Duplicate username on register — 409
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "alice_v1_renamed",
+  "email": "someoneelse_v1@example.com",
+  "password": "password123"
+}
+
+> {%
+client.test("409 duplicate username", function() { client.assert(response.status === 409, "got " + response.status); });
+%}
+
+
+### 5.2 Duplicate email on register — 409
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "brandnew_v1",
+  "email": "bob_v1@example.com",
+  "password": "password123"
+}
+
+> {%
+client.test("409 duplicate email", function() { client.assert(response.status === 409); });
+%}
+
+
+### 5.3 Self-follow — 400
+POST http://localhost:8080/users/following
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "followeeId": {{userIdA}}
+}
+
+> {%
+client.test("400 self-follow", function() { client.assert(response.status === 400, "got " + response.status); });
+%}
+
+
+### 5.4 Invalid rating (out of 1-10 range) — 400
+POST http://localhost:8080/movies/{{movieId}}/reviews
+Content-Type: application/json
+Authorization: Bearer {{tokenB}}
+
+{
+  "rating": 99
+}
+
+> {%
+client.test("400 invalid rating", function() { client.assert(response.status === 400, "got " + response.status); });
+%}
+
+
+### 5.5 B reviews the movie for real now (needed for compatibility + duplicate-review test below)
+POST http://localhost:8080/movies/{{movieId}}/reviews
+Content-Type: application/json
+Authorization: Bearer {{tokenB}}
+
+{
+  "rating": 6
+}
+
+> {%
+client.global.set("reviewIdB", response.body.id);
+client.test("201", function() { client.assert(response.status === 201); });
+%}
+
+
+### 5.6 B reviews the SAME movie again — 409 duplicate review
+POST http://localhost:8080/movies/{{movieId}}/reviews
+Content-Type: application/json
+Authorization: Bearer {{tokenB}}
+
+{
+  "rating": 3
+}
+
+> {%
+client.test("409 duplicate review", function() { client.assert(response.status === 409, "got " + response.status); });
+%}
+
+
+### 5.7 A tries to delete B's review — should be UnauthorizedActionException (403)
+DELETE http://localhost:8080/movies/{{movieId}}/reviews/{{reviewIdB}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("403 not the owner", function() { client.assert(response.status === 403, "got " + response.status); });
+%}
+
+
+### 5.8 GET a review/movie/user that doesn't exist — 404
+GET http://localhost:8080/movies/999999
+
+> {%
+client.test("404 not found", function() { client.assert(response.status === 404, "got " + response.status); });
+%}
+
+
+### =========================================================
+### PART 6 — FOLLOW + COMPATIBILITY FEATURE, FULL FLOW
+### =========================================================
+
+### 6.1 A follows B
+POST http://localhost:8080/users/following
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "followeeId": {{userIdB}}
+}
+
+> {%
+client.test("201", function() { client.assert(response.status === 201); });
+%}
+
+
+### 6.2 Compatibility check BEFORE mutual follow — 403 NotMutualFollowException
+GET http://localhost:8080/users/compatibility/{{userIdB}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("403 not mutual yet", function() { client.assert(response.status === 403, "got " + response.status); });
+%}
+
+
+### 6.3 B follows A back (now mutual)
+POST http://localhost:8080/users/following
+Content-Type: application/json
+Authorization: Bearer {{tokenB}}
+
+{
+  "followeeId": {{userIdA}}
+}
+
+> {%
+client.test("201", function() { client.assert(response.status === 201); });
+%}
+
+
+### 6.4 A tries to follow B again — 409 duplicate follow
+POST http://localhost:8080/users/following
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "followeeId": {{userIdB}}
+}
+
+> {%
+client.test("409 duplicate follow", function() { client.assert(response.status === 409, "got " + response.status); });
+%}
+
+
+### 6.5 Compatibility check, A's perspective — real score now
+### A rated 8 (after the 4.4 update), B rated 6 -> |8-6|=2 -> 100-(2/9*100) ≈ 77.8%
+GET http://localhost:8080/users/compatibility/{{userIdB}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("200 + real score + 1 shared movie", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.compatibilityScore !== null);
+    client.assert(response.body.sharedMovies.length === 1);
+    console.log("compatibility score: " + response.body.compatibilityScore);
+});
+%}
+
+
+### 6.6 Compatibility, B's perspective — should mirror 6.5 with ratings swapped
+GET http://localhost:8080/users/compatibility/{{userIdA}}
+Authorization: Bearer {{tokenB}}
+
+> {%
+client.test("200 + mirrored", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.sharedMovies[0].myRating === 6);
+    client.assert(response.body.sharedMovies[0].theirRating === 8);
+});
+%}
+
+
+### 6.7 Compatibility against C, who nobody follows — 403
+GET http://localhost:8080/users/compatibility/{{userIdC}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("403 not mutual", function() { client.assert(response.status === 403); });
+%}
+
+
+### 6.8 A follows D
+POST http://localhost:8080/users/following
+Content-Type: application/json
+Authorization: Bearer {{tokenA}}
+
+{
+  "followeeId": {{userIdD}}
+}
+
+
+### 6.9 D follows A back (mutual, but zero shared reviews)
+POST http://localhost:8080/users/following
+Content-Type: application/json
+Authorization: Bearer {{tokenD}}
+
+{
+  "followeeId": {{userIdA}}
+}
+
+
+### 6.10 Compatibility A vs D — zero shared movies -> null score, NOT 0%, NOT an error
+GET http://localhost:8080/users/compatibility/{{userIdD}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("200 + null score + empty sharedMovies (not an error, not 0%)", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.compatibilityScore === null, "got: " + response.body.compatibilityScore);
+    client.assert(response.body.sharedMovies.length === 0);
+});
+%}
+
+
+### 6.11 GET /users/{id}/following now reflects real data
+GET http://localhost:8080/users/{{userIdA}}/following
+
+> {%
+client.test("A follows 2 people now (B and D)", function() {
+    client.assert(response.body.length === 2, "got " + response.body.length);
+});
+%}
+
+
+### 6.12 A unfollows B
+DELETE http://localhost:8080/users/following/{{userIdB}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("200 + deleted:true", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.deleted === true);
+});
+%}
+
+
+### 6.13 Compatibility now broken (no longer mutual) — 403 again
+GET http://localhost:8080/users/compatibility/{{userIdB}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("403 after unfollow", function() { client.assert(response.status === 403); });
+%}
+
+
+### =========================================================
+### PART 7 — WATCHLIST + REVIEW CLEANUP (delete paths)
+### =========================================================
+
+### 7.1 DELETE /users/watchlist/{entryId} — with token, real entry
+DELETE http://localhost:8080/users/watchlist/{{watchlistEntryId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("200 + deleted:true", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.deleted === true);
+});
+%}
+
+
+### 7.2 DELETE the same watchlist entry again — 404 (already gone)
+DELETE http://localhost:8080/users/watchlist/{{watchlistEntryId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("404 already removed", function() { client.assert(response.status === 404, "got " + response.status); });
+%}
+
+
+### 7.3 DELETE /movies/{id}/reviews/{reviewId} — A deletes their own review
+DELETE http://localhost:8080/movies/{{movieId}}/reviews/{{reviewIdA}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+client.test("200 + deleted:true", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.deleted === true);
+});
+%}
+
+
+### =========================================================
+### PART 8 — ACCOUNT DELETION (do this LAST — destroys the account)
+### =========================================================
+
+### 8.1 C deletes their own account (C was never really used for data, safe to remove)
+DELETE http://localhost:8080/users
+Authorization: Bearer {{tokenC}}
+
+> {%
+client.test("200 + deleted:true", function() {
+    client.assert(response.status === 200);
+    client.assert(response.body.deleted === true);
+});
+%}
+
+
+### 8.2 GET the deleted user — 404
+GET http://localhost:8080/users/{{userIdC}}
+
+> {%
+client.test("404 gone", function() { client.assert(response.status === 404, "got " + response.status); });
+%}
