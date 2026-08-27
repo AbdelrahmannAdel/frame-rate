@@ -1,89 +1,82 @@
 package movieapp.service;
 
-import movieapp.db.FollowRepository;
-import movieapp.db.UserRepository;
-import movieapp.exception.DuplicateFollowException;
-import movieapp.exception.NotFoundException;
-import movieapp.exception.SelfFollowException;
+import movieapp.exception.*;
 import movieapp.model.Follow;
+import movieapp.model.FollowId;
 import movieapp.model.User;
+import movieapp.repository.FollowRepository;
+import movieapp.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Service
 public class FollowService {
 
-    private final Connection connection;
-    public FollowService(Connection connection) {
-        this.connection = connection;
+    private final FollowRepository followRepository;
+    private final UserRepository userRepository;
+
+    public FollowService(FollowRepository followRepository, UserRepository userRepository) {
+        this.followRepository = followRepository;
+        this.userRepository = userRepository;
     }
 
-    public Follow followUser(int followerId, int followeeId) throws SQLException, SelfFollowException, DuplicateFollowException {
-        FollowRepository followRepository = new FollowRepository();
+    public Follow followUser(int followerId, int followeeId)
+            throws NotFoundException, SelfFollowException, DuplicateFollowException {
 
         if (followerId == followeeId)
             throw new SelfFollowException("User " + followerId + " cannot follow themselves");
 
-        List<Follow> followingList = followRepository.findFollowing(connection,followerId);
-        for (Follow follow: followingList){
-            if (follow.getFolloweeId() == followeeId)
-                throw new DuplicateFollowException("User " + followerId + " is already following user " + followeeId);
-        }
+        User follower = userRepository.findById(followerId)
+                .orElseThrow(() -> new NotFoundException("No user found with id: " + followerId));
+        User followee = userRepository.findById(followeeId)
+                .orElseThrow(() -> new NotFoundException("No user found with id: " + followeeId));
 
-        return followRepository.follow(connection, followerId, followeeId);
+        if (followRepository.existsById(new FollowId(followerId, followeeId)))
+            throw new DuplicateFollowException("User " + followerId + " is already following user " + followeeId);
+
+        return followRepository.save(new Follow(follower, followee));
     } // end of followUser()
 
-    public boolean unfollowUser(int followerId, int followeeId) throws SQLException, NotFoundException {
-        FollowRepository followRepository = new FollowRepository();
+    public boolean unfollowUser(int followerId, int followeeId) throws NotFoundException {
+        FollowId id = new FollowId(followerId, followeeId);
 
-        List<Follow> followingList = followRepository.findFollowing(connection,followerId);
-        boolean flag = false;
-        for (Follow follow: followingList){
-            if (follow.getFolloweeId() == followeeId){
-                flag = true;
-                break;
-            }
-        }
-
-        if (!flag)
+        if (!followRepository.existsById(id))
             throw new NotFoundException("User " + followerId + " is not following user " + followeeId);
 
-         return followRepository.unfollow(connection, followerId, followeeId);
+        followRepository.deleteById(id);
+        return true;
     } // end of unfollowUser()
 
-    public List<User> getFollowing(int userId) throws SQLException, NotFoundException {
-        UserRepository userRepository = new UserRepository();
-
-        // check if user exists
-        if (userRepository.findById(connection, userId) == null)
+    @Transactional(readOnly = true)
+    public List<User> getFollowing(int userId) throws NotFoundException {
+        if (userRepository.findById(userId).isEmpty())
             throw new NotFoundException("No user found with id: " + userId);
 
-        FollowRepository followRepository = new FollowRepository();
-        List<Follow> followingList = followRepository.findFollowing(connection, userId);
-
         List<User> users = new ArrayList<>();
-        for (Follow followRelationship : followingList)
-            users.add(userRepository.findById(connection, followRelationship.getFolloweeId()));
-
+        for (Follow follow : followRepository.findByFollower_Id(userId)) {
+            int followeeId = follow.getFollowee().getId();
+            User followee = userRepository.findById(followeeId)
+                    .orElseThrow(() -> new NotFoundException("No user found with id: " + followeeId));
+            users.add(followee);
+        }
         return users;
-    } // end of getFollowing()
+    }
 
-    public List<User> getFollowers(int userId) throws SQLException, NotFoundException {
-        UserRepository userRepository = new UserRepository();
-
-        // check if user exists
-        if (userRepository.findById(connection, userId) == null)
+    @Transactional(readOnly = true)
+    public List<User> getFollowers(int userId) throws NotFoundException {
+        if (userRepository.findById(userId).isEmpty())
             throw new NotFoundException("No user found with id: " + userId);
 
-        FollowRepository followRepository = new FollowRepository();
-        List<Follow> followersList = followRepository.findFollowers(connection, userId);
-
         List<User> users = new ArrayList<>();
-        for (Follow followRelationship : followersList)
-            users.add(userRepository.findById(connection, followRelationship.getFollowerId()));
-
+        for (Follow follow : followRepository.findByFollowee_Id(userId)) {
+            int followerId = follow.getFollower().getId();
+            User follower = userRepository.findById(followerId)
+                    .orElseThrow(() -> new NotFoundException("No user found with id: " + followerId));
+            users.add(follower);
+        }
         return users;
     } // end of getFollowers()
 

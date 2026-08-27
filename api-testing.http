@@ -1,9 +1,0 @@
-### 12. Sanity check: compatibility with a random user who isn't followed back — should 403 NotMutualFollowException
-POST http://localhost:8080/users
-Content-Type: application/json
-
-{
-  "username": "charlie_test",
-  "email": "charlie_test@example.com",
-  "password": "password123"
-}

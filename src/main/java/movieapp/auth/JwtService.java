@@ -3,29 +3,34 @@ package movieapp.auth;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
+@Component
 public class JwtService {
 
-    private static final Dotenv dotenv = Dotenv.load();
-    private static final String SECRET = dotenv.get("JWT_SECRET");
-    private static final Algorithm ALGORITHM = Algorithm.HMAC256(SECRET);
+    private final Algorithm algorithm;
 
-    public static String generateToken(int userId) {
-        Instant expiresAt = Instant.now().plusSeconds(24 * 60 * 60); // 24 hours from now
+    public JwtService(@Value("${JWT_SECRET}") String secret) {
+        this.algorithm = Algorithm.HMAC256(secret);
+    }
+
+    public String generateToken(int userId) {
+        Instant expiresAt = Instant.now().plusSeconds(30L * 24 * 60 * 60); // 30 days from now
 
         return JWT.create()
                 .withClaim("userId", userId)
                 .withExpiresAt(expiresAt)
-                .sign(ALGORITHM);
-    }
+                .sign(algorithm);
 
-    public static DecodedJWT verifyToken(String token) {
-        return JWT.require(ALGORITHM)
+    } // end of generateToken()
+
+    public DecodedJWT verifyToken(String token) {
+        return JWT.require(algorithm)
                 .build()
                 .verify(token);
-    }
+    } // end of verifyToken()
 
 } // end of class

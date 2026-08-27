@@ -6,27 +6,27 @@ import java.time.LocalDateTime;
 
 public class ReviewResponse {
 
-    private final int id;
-    private final int userId;
+    private final Integer id;
+    private final Integer userId;
     private final String username;
-    private final int movieId;
+    private final Integer movieId;
     private final int rating;
     private final LocalDateTime createdAt;
 
     public ReviewResponse(Review review, String username) {
         this.id = review.getId();
-        this.userId = review.getUserId();
+        this.userId = review.getUser().getId();
         this.username = username;
-        this.movieId = review.getMovieId();
+        this.movieId = review.getMovie().getId();
         this.rating = review.getRating();
         this.createdAt = review.getCreatedAt();
     }
 
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public int getUserId() {
+    public Integer getUserId() {
         return userId;
     }
 
@@ -34,7 +34,7 @@ public class ReviewResponse {
         return username;
     }
 
-    public int getMovieId() {
+    public Integer getMovieId() {
         return movieId;
     }
 

@@ -1,7 +1,5 @@
 package movieapp.model;
 
-// one row of the you-vs-them comparison: a single movie both users have reviewed,
-// paired with each user's own rating for it
 public class SharedMovieRating {
 
     private final int movieId;

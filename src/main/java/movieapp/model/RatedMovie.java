@@ -1,8 +1,5 @@
 package movieapp.model;
 
-import movieapp.model.Movie;
-
-// pairs a Movie with its computed average rating -- NOT a database row,
 public class RatedMovie {
 
     private final Movie movie;

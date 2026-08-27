@@ -2,9 +2,6 @@ package movieapp.model;
 
 import java.util.List;
 
-// the full result of a compatibility check between two users --
-// Double (not double) for compatibilityScore since it can be null
-// when there isn't enough shared data yet to compute a meaningful score
 public class CompatibilityResult {
 
     private final Double compatibilityScore;

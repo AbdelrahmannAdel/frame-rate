@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 public class UserResponse {
 
-    private final int id;
+    private final Integer id;
     private final String username;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -22,7 +22,7 @@ public class UserResponse {
         this.createdAt = user.getCreatedAt();
     }
 
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 

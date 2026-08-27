@@ -1,60 +1,55 @@
 package movieapp.service;
 
-import movieapp.db.FollowRepository;
-import movieapp.db.MovieRepository;
-import movieapp.db.ReviewRepository;
-import movieapp.db.UserRepository;
 import movieapp.exception.NotFoundException;
 import movieapp.exception.NotMutualFollowException;
-import movieapp.model.CompatibilityResult;
-import movieapp.model.Follow;
-import movieapp.model.Movie;
-import movieapp.model.Review;
-import movieapp.model.SharedMovieRating;
+import movieapp.model.*;
+import movieapp.repository.FollowRepository;
+import movieapp.repository.ReviewRepository;
+import movieapp.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Service
 public class CompatibilityService {
 
-    private final Connection connection;
+    private final UserRepository userRepository;
+    private final FollowRepository followRepository;
+    private final ReviewRepository reviewRepository;
 
-    public CompatibilityService(Connection connection) {
-        this.connection = connection;
+    public CompatibilityService(UserRepository userRepository,
+                                FollowRepository followRepository,
+                                ReviewRepository reviewRepository) {
+        this.userRepository = userRepository;
+        this.followRepository = followRepository;
+        this.reviewRepository = reviewRepository;
     }
 
-    public CompatibilityResult getCompatibility(int userId, int otherUserId) throws SQLException, NotFoundException, NotMutualFollowException {
-        UserRepository userRepository = new UserRepository();
+    @Transactional(readOnly = true)
+    public CompatibilityResult getCompatibility(int userId, int otherUserId)
+            throws NotFoundException, NotMutualFollowException {
 
-        // both users must actually exist
-        if (userRepository.findById(connection, userId) == null)
+        if (userRepository.findById(userId).isEmpty())
             throw new NotFoundException("No user found with id: " + userId);
-        if (userRepository.findById(connection, otherUserId) == null)
+        if (userRepository.findById(otherUserId).isEmpty())
             throw new NotFoundException("No user found with id: " + otherUserId);
 
-        // must be mutually following -- check both directions
-        FollowRepository followRepository = new FollowRepository();
-        boolean iFollowThem = isFollowing(followRepository.findFollowing(connection, userId), otherUserId);
-        boolean theyFollowMe = isFollowing(followRepository.findFollowing(connection, otherUserId), userId);
+        boolean iFollowThem = followRepository.existsById(new FollowId(userId, otherUserId));
+        boolean theyFollowMe = followRepository.existsById(new FollowId(otherUserId, userId));
 
         if (!iFollowThem || !theyFollowMe)
             throw new NotMutualFollowException("You must mutually follow this user to check compatibility");
 
-        // gather both users' reviews
-        ReviewRepository reviewRepository = new ReviewRepository();
-        List<Review> myReviews = reviewRepository.findByUser(connection, userId);
-        List<Review> theirReviews = reviewRepository.findByUser(connection, otherUserId);
+        List<Review> myReviews = reviewRepository.findByUser_Id(userId);
+        List<Review> theirReviews = reviewRepository.findByUser_Id(otherUserId);
 
-        // find movies both reviewed, building the shared-movie comparison list
-        MovieRepository movieRepository = new MovieRepository();
         List<SharedMovieRating> sharedMovies = new ArrayList<>();
-
         for (Review myReview : myReviews) {
             for (Review theirReview : theirReviews) {
-                if (myReview.getMovieId() == theirReview.getMovieId()) {
-                    Movie movie = movieRepository.findById(connection, myReview.getMovieId());
+                if (myReview.getMovie().getId().equals(theirReview.getMovie().getId())) {
+                    Movie movie = myReview.getMovie();
                     sharedMovies.add(new SharedMovieRating(
                             movie.getId(),
                             movie.getTitle(),
@@ -65,12 +60,9 @@ public class CompatibilityService {
             }
         }
 
-        // no overlap at all -- nothing to compute a score from
         if (sharedMovies.isEmpty())
             return new CompatibilityResult(null, sharedMovies);
 
-        // average absolute difference across shared movies, converted to a 0-100% score
-        // (max possible difference per movie is 9, since ratings are 1-10)
         double totalDifference = 0;
         for (SharedMovieRating shared : sharedMovies)
             totalDifference += Math.abs(shared.getMyRating() - shared.getTheirRating());
@@ -80,14 +72,5 @@ public class CompatibilityService {
 
         return new CompatibilityResult(compatibilityScore, sharedMovies);
     } // end of getCompatibility()
-
-    // checks whether a list of Follow relationships contains one pointing at targetUserId
-    private boolean isFollowing(List<Follow> followingList, int targetUserId) {
-        for (Follow follow : followingList) {
-            if (follow.getFolloweeId() == targetUserId)
-                return true;
-        }
-        return false;
-    } // end of isFollowing()
 
 } // end of class
