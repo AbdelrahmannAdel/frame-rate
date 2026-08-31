@@ -23,6 +23,9 @@ public class User {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "avatar_path")
+    private String avatarPath;
+
     public User() {
     }
 
@@ -57,6 +60,10 @@ public class User {
         this.createdAt = createdAt;
     }
 
+    public void setAvatarPath(String avatarPath) {
+        this.avatarPath = avatarPath;
+    }
+
     public Integer getId() {
         return id;
     }
@@ -76,4 +83,9 @@ public class User {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public String getAvatarPath() {
+        return avatarPath;
+    }
+
 } // end of class

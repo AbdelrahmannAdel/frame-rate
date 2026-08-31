@@ -39,7 +39,8 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/", "/error", "/movies", "/movies/search", "/movies/top-rated", "/movies/{id}",
                                 "/movies/{id}/reviews", "/users/search", "/users/{id}", "/users/{id}/reviews",
-                                "/users/{id}/watchlist", "/users/{id}/following", "/users/{id}/followers"
+                                "/users/{id}/watchlist", "/users/{id}/following", "/users/{id}/followers",
+                                "/avatars/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

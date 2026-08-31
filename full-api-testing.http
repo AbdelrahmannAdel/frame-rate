@@ -25,8 +25,8 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "alice_v1",
-  "email": "alice_v1@example.com",
+  "username": "alice_v3",
+  "email": "alice_v3@example.com",
   "password": "password123"
 }
 
@@ -34,7 +34,7 @@ Content-Type: application/json
 client.global.set("tokenA", response.body.token);
 client.global.set("userIdA", response.body.user.id);
 client.test("register returns 201", function() { client.assert(response.status === 201, "expected 201, got " + response.status); });
-client.test("register includes email (own account)", function() { client.assert(response.body.user.email === "alice_v1@example.com"); });
+client.test("register includes email (own account)", function() { client.assert(response.body.user.email === "alice_v3@example.com"); });
 %}
 
 
@@ -43,8 +43,8 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "bob_v1",
-  "email": "bob_v1@example.com",
+  "username": "bob_v3",
+  "email": "bob_v3@example.com",
   "password": "password123"
 }
 
@@ -59,8 +59,8 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "charlie_v1",
-  "email": "charlie_v1@example.com",
+  "username": "charlie_v3",
+  "email": "charlie_v3@example.com",
   "password": "password123"
 }
 
@@ -75,8 +75,8 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "dana_v1",
-  "email": "dana_v1@example.com",
+  "username": "dana_v3",
+  "email": "dana_v3@example.com",
   "password": "password123"
 }
 
@@ -112,7 +112,7 @@ Authorization: Bearer {{tokenA}}
 
 > {%
 client.global.set("reviewIdA", response.body.id);
-client.test("review has resolved username", function() { client.assert(response.body.username === "alice_v1"); });
+client.test("review has resolved username", function() { client.assert(response.body.username === "alice_v3"); });
 %}
 
 
@@ -181,13 +181,13 @@ GET http://localhost:8080/movies/{{movieId}}/reviews
 > {%
 client.test("200 + username resolved", function() {
     client.assert(response.status === 200);
-    client.assert(response.body[0].username === "alice_v1");
+    client.assert(response.body[0].username === "alice_v3");
 });
 %}
 
 
 ### 1.6 GET /users/search — must not be swallowed by /users/{id}
-GET http://localhost:8080/users/search?username=_v1
+GET http://localhost:8080/users/search?username=_v3
 
 > {%
 client.test("200 + no email leaked in search results", function() {
@@ -265,7 +265,7 @@ Authorization: Bearer {{tokenA}}
 
 > {%
 client.test("email present for own profile", function() {
-    client.assert(response.body.email === "alice_v1@example.com", "got: " + JSON.stringify(response.body.email));
+    client.assert(response.body.email === "alice_v3@example.com", "got: " + JSON.stringify(response.body.email));
 });
 %}
 
@@ -404,13 +404,13 @@ Content-Type: application/json
 Authorization: Bearer {{tokenA}}
 
 {
-  "username": "alice_v1_renamed"
+  "username": "alice_v3_renamed"
 }
 
 > {%
 client.test("200 + updated", function() {
     client.assert(response.status === 200);
-    client.assert(response.body.username === "alice_v1_renamed");
+    client.assert(response.body.username === "alice_v3_renamed");
 });
 %}
 
@@ -421,7 +421,7 @@ Content-Type: application/json
 Authorization: Bearer {{tokenA}}
 
 {
-  "email": "alice_v1_renamed@example.com"
+  "email": "alice_v3_renamed@example.com"
 }
 
 > {%
@@ -469,8 +469,8 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "alice_v1_renamed",
-  "email": "someoneelse_v1@example.com",
+  "username": "alice_v3_renamed",
+  "email": "someoneelse_v3@example.com",
   "password": "password123"
 }
 
@@ -484,8 +484,8 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "username": "brandnew_v1",
-  "email": "bob_v1@example.com",
+  "username": "brandnew_v3",
+  "email": "bob_v3@example.com",
   "password": "password123"
 }
 

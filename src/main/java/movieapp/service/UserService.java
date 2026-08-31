@@ -10,10 +10,15 @@ import movieapp.repository.FollowRepository;
 import movieapp.repository.ReviewRepository;
 import movieapp.repository.UserRepository;
 import movieapp.repository.WatchlistEntryRepository;
+import movieapp.storage.FileStorageService;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -22,15 +27,21 @@ public class UserService {
     private final ReviewRepository reviewRepository;
     private final WatchlistEntryRepository watchlistEntryRepository;
     private final FollowRepository followRepository;
+    private final FileStorageService fileStorageService;
+    private final ImageValidator imageValidator;
 
     public UserService(UserRepository userRepository,
                        ReviewRepository reviewRepository,
                        WatchlistEntryRepository watchlistEntryRepository,
-                       FollowRepository followRepository) {
+                       FollowRepository followRepository,
+                       FileStorageService fileStorageService,
+                       ImageValidator imageValidator) {
         this.userRepository = userRepository;
         this.reviewRepository = reviewRepository;
         this.watchlistEntryRepository = watchlistEntryRepository;
         this.followRepository = followRepository;
+        this.fileStorageService = fileStorageService;
+        this.imageValidator = imageValidator;
     }
 
     public User registerUser(String username, String email, String passwordHash)
@@ -120,5 +131,23 @@ public class UserService {
     public List<User> searchUsers(String username) {
         return userRepository.findByUsernameContainingIgnoreCase(username);
     } // end of searchUsers()
+
+    public User updateAvatar(int userId, MultipartFile file)
+            throws NotFoundException, InvalidImageException, IOException {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("No user found with id: " + userId));
+
+        String extension = imageValidator.detectExtension(file);
+        String filename = UUID.randomUUID() + "." + extension;
+
+        String newPath = fileStorageService.store(file, filename);
+
+        if (user.getAvatarPath() != null)
+            fileStorageService.delete(user.getAvatarPath());
+
+        user.setAvatarPath(newPath);
+        return userRepository.save(user);
+    } // end of updateAvatar()
 
 } // end of class

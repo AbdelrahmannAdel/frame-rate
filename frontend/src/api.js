@@ -172,3 +172,40 @@ export function deleteAccount() {
 export function getCompatibility(otherUserId) {
     return request(`/users/compatibility/${otherUserId}`, { auth: true });
 }
+
+// ---- avatar ----
+// Can't reuse request() here: file uploads need FormData with the browser's
+// own auto-generated multipart boundary, not a JSON Content-Type header.
+export async function uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    let response;
+    try {
+        response = await fetch(API_BASE + "/users/avatar", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + getToken() },
+            body: formData,
+        });
+    } catch {
+        // fetch() throws a generic TypeError with no status code when the
+        // connection is reset/dropped mid-upload -- this is what actually
+        // happens for an oversized file in some cases, rather than a clean
+        // HTTP error response. There's no real status to inspect here, so
+        // this is a deliberate best-guess message, not a confirmed cause.
+        throw new Error("Upload failed — the file may be too large or the connection was interrupted.");
+    }
+
+    if (!response.ok) {
+        const errorText = await response.text();
+
+        if (response.status === 401) {
+            clearToken();
+            window.dispatchEvent(new Event("auth:expired"));
+        }
+
+        throw new Error(errorText || `Request failed: ${response.status}`);
+    }
+
+    return response.json();
+}

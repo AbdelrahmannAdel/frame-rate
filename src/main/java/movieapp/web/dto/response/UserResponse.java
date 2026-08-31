@@ -15,11 +15,14 @@ public class UserResponse {
 
     private final LocalDateTime createdAt;
 
+    private final String avatarUrl;
+
     public UserResponse(User user, boolean includeEmail) {
         this.id = user.getId();
         this.username = user.getUsername();
         this.email = includeEmail ? user.getEmail() : null;
         this.createdAt = user.getCreatedAt();
+        this.avatarUrl = user.getAvatarPath() != null ? "/" + user.getAvatarPath() : null;
     }
 
     public Integer getId() {
@@ -36,6 +39,10 @@ public class UserResponse {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
     }
 
 } // end of class

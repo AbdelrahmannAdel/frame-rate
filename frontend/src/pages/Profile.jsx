@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
     getUser,
@@ -13,10 +13,12 @@ import {
     updateUsername,
     updateEmail,
     updatePassword,
+    uploadAvatar,
     getMovie,
 } from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import StarRating from "../components/StarRating.jsx";
+
+const API_BASE = "http://localhost:8080";
 
 function Profile() {
     const { id } = useParams();
@@ -38,6 +40,9 @@ function Profile() {
     const isOwnProfile = currentUser && Number(id) === currentUser.id;
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- initial
+        // loading/error reset before an async fetch; not the accidental-loop
+        // pattern this rule is meant to catch
         setLoading(true);
         setError(null);
 
@@ -130,16 +135,32 @@ function Profile() {
     return (
         <div>
             <div className="profile-header">
-                <h1>{profileUser.username}</h1>
-                <p className="meta">
-                    <Link to={`/profile/${id}/followers`}>
-                        {followers.length} follower{followers.length !== 1 ? "s" : ""}
-                    </Link>
-                    {" · "}
-                    <Link to={`/profile/${id}/following`}>
-                        {following.length} following
-                    </Link>
-                </p>
+                <div className="profile-header-top">
+                    {profileUser.avatarUrl ? (
+                        <img
+                            className="avatar-img"
+                            src={`${API_BASE}${profileUser.avatarUrl}`}
+                            alt={`${profileUser.username}'s avatar`}
+                        />
+                    ) : (
+                        <div className="avatar-placeholder">
+                            {profileUser.username.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+
+                    <div>
+                        <h1>{profileUser.username}</h1>
+                        <p className="meta">
+                            <Link to={`/profile/${id}/followers`}>
+                                {followers.length} follower{followers.length !== 1 ? "s" : ""}
+                            </Link>
+                            {" · "}
+                            <Link to={`/profile/${id}/following`}>
+                                {following.length} following
+                            </Link>
+                        </p>
+                    </div>
+                </div>
 
                 {!isOwnProfile && currentUser && (
                     <div className="profile-actions">
@@ -246,6 +267,58 @@ function SettingsSection({ user, onUpdated, logout }) {
     const [message, setMessage] = useState(null);
     const [busy, setBusy] = useState(false);
 
+    const [avatarPreview, setAvatarPreview] = useState(null);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const avatarInputRef = useRef(null);
+
+    // must match the backend's spring.servlet.multipart.max-file-size --
+    // duplicated here deliberately so we can reject an oversized file
+    // instantly, client-side, before ever attempting the upload (some
+    // servers reset the connection outright on an oversized multipart
+    // body rather than returning a clean error, which this sidesteps)
+    const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+    useEffect(() => {
+        return () => {
+            if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        };
+    }, [avatarPreview]);
+
+    function handleAvatarClick() {
+        avatarInputRef.current?.click();
+    }
+
+    async function handleAvatarFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setError(null);
+        setMessage(null);
+
+        if (file.size > MAX_AVATAR_BYTES) {
+            setError(`That file is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB) — the limit is 5MB.`);
+            e.target.value = "";
+            return;
+        }
+
+        const preview = URL.createObjectURL(file);
+        setAvatarPreview(preview);
+        setAvatarUploading(true);
+
+        try {
+            const updated = await uploadAvatar(file);
+            onUpdated(updated);
+            setMessage("avatar updated.");
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setAvatarUploading(false);
+            URL.revokeObjectURL(preview);
+            setAvatarPreview(null);
+            e.target.value = "";
+        }
+    }
+
     async function handleUsernameSubmit(e) {
         e.preventDefault();
         setBusy(true);
@@ -300,6 +373,33 @@ function SettingsSection({ user, onUpdated, logout }) {
 
             {error && <p className="form-error">{error}</p>}
             {message && <p className="form-message">{message}</p>}
+
+            <div className="avatar-settings">
+                <div
+                    className="avatar-settings-preview avatar-clickable"
+                    onClick={handleAvatarClick}
+                    title="click to change avatar"
+                >
+                    {avatarPreview ? (
+                        <img className="avatar-img" src={avatarPreview} alt="new avatar preview" />
+                    ) : user.avatarUrl ? (
+                        <img className="avatar-img" src={`${API_BASE}${user.avatarUrl}`} alt="current avatar" />
+                    ) : (
+                        <div className="avatar-placeholder">{user.username.charAt(0).toUpperCase()}</div>
+                    )}
+
+                    {avatarUploading && <div className="avatar-uploading-overlay">uploading...</div>}
+
+                    <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        onChange={handleAvatarFileChange}
+                        style={{ display: "none" }}
+                    />
+                </div>
+                <p className="meta">click your avatar to change it</p>
+            </div>
 
             <form onSubmit={handleUsernameSubmit} className="settings-form">
                 <input value={username} onChange={(e) => setUsername(e.target.value)} />

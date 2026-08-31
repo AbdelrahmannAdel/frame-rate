@@ -1,0 +1,132 @@
+### =========================================================
+### Avatar upload testing
+### Requires: ./test-files/test1.jpg (real small JPEG),
+###           ./test-files/not-an-image.txt (any non-image file)
+### Optional: ./test-files/big-file-over-5mb.jpg for step 7
+### =========================================================
+
+### 1. Register a user for this test
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "username": "avatar_test9",
+  "email": "avatar_test9@example.com",
+  "password": "password123"
+}
+
+> {%
+    client.global.set("token", response.body.token);
+    client.global.set("userId", response.body.user.id);
+    client.test("register 201", function() { client.assert(response.status === 201); });
+%}
+
+
+### 2. Upload a valid JPEG
+### Expect: 200 + UserResponse with a real avatarUrl
+POST http://localhost:8080/users/avatar
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="test1.jpg"
+Content-Type: image/jpeg
+
+< ./test-files/test1.jpg
+--WebAppBoundary--
+
+> {%
+    client.global.set("avatarUrl", response.body.avatarUrl);
+    client.test("200 + real avatarUrl", function() {
+        client.assert(response.status === 200, "got " + response.status);
+        client.assert(response.body.avatarUrl !== null, "got: " + JSON.stringify(response.body.avatarUrl));
+        console.log("avatarUrl: " + response.body.avatarUrl);
+    });
+%}
+
+
+### 3. Fetch the uploaded file via WebConfig's static resource handler
+### Expect: 200 + actual image bytes
+GET http://localhost:8080{{avatarUrl}}
+
+> {%
+    client.test("200 static file served", function() { client.assert(response.status === 200, "got " + response.status); });
+%}
+
+
+### 4. Upload again — confirms old file gets replaced, not orphaned
+### Expect: 200 + a DIFFERENT avatarUrl (new UUID)
+POST http://localhost:8080/users/avatar
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="test1.jpg"
+Content-Type: image/jpeg
+
+< ./test-files/test1.jpg
+--WebAppBoundary--
+
+> {%
+    client.test("new avatarUrl differs from step 2's", function() {
+        client.assert(response.body.avatarUrl !== client.global.get("avatarUrl"),
+            "expected a new UUID filename, got the same URL again");
+    });
+%}
+
+
+### 5. Upload a non-image file (tests magic-byte check, not filename)
+### UNKNOWN expected status -- record what actually happens
+POST http://localhost:8080/users/avatar
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="fake.jpg"
+Content-Type: image/jpeg
+
+< ./test-files/not-an-image.txt
+--WebAppBoundary--
+
+> {%
+    console.log("non-image upload -> status " + response.status);
+    client.test("rejected somehow (recording actual status)", function() {
+        client.assert(response.status >= 400, "expected some 4xx/5xx, got " + response.status);
+    });
+%}
+
+
+### 6. No auth token
+### Expect: whatever your general no-token status is (401 or 403, per Part 3's note)
+POST http://localhost:8080/users/avatar
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="test1.jpg"
+Content-Type: image/jpeg
+
+< ./test-files/test1.jpg
+--WebAppBoundary--
+
+> {%
+    console.log("no-token avatar upload -> status " + response.status);
+    client.test("rejected", function() { client.assert(response.status === 401 || response.status === 403); });
+%}
+
+
+### 7. (Optional) Upload a file over 5MB
+### UNKNOWN expected status -- record what actually happens
+POST http://localhost:8080/users/avatar
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="big.jpg"
+Content-Type: image/jpeg
+
+< ./test-files/big-file-over-5mb.jpg
+--WebAppBoundary--
+
+> {%
+    console.log("oversized upload -> status " + response.status);
+%}

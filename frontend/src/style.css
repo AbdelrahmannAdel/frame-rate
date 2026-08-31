@@ -8,7 +8,7 @@
     box-sizing: border-box;
 }
 
-h1, h2, button, .nav-links a, label, input, textarea, button {
+h1, h2, button, .nav-links a, label {
     text-transform: capitalize;
 }
 
@@ -400,4 +400,77 @@ button:disabled {
     position: absolute;
     bottom: 10px;
     right: 10px;
+}
+
+.profile-header-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.avatar-img {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.avatar-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #4a4638;
+    color: #eee5cf;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.avatar-settings {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.avatar-settings-preview .avatar-img,
+.avatar-settings-preview .avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    font-size: 30px;
+}
+
+.avatar-settings-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.avatar-settings-controls input[type="file"] {
+    font-size: 13px;
+    color: #8b8674;
+}
+
+.avatar-clickable {
+    position: relative;
+    cursor: pointer;
+}
+
+.avatar-uploading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(23, 26, 31, 0.75);
+    color: #eee5cf;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 10px;
+    text-align: center;
 }

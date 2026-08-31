@@ -1,20 +1,29 @@
 package movieapp.web.controller;
 
+import movieapp.service.*;
+import movieapp.exception.*;
+import movieapp.web.dto.request.*;
+import movieapp.web.dto.response.FollowResponse;
+import movieapp.web.dto.response.ReviewResponse;
+import movieapp.web.dto.response.UserResponse;
+import movieapp.web.dto.response.WatchlistEntryResponse;
+import movieapp.model.User;
+import movieapp.model.Follow;
+import movieapp.model.WatchlistEntry;
+import movieapp.model.CompatibilityResult;
 import movieapp.auth.JwtService;
 import movieapp.auth.PasswordHasher;
-import movieapp.exception.*;
-import movieapp.model.*;
 import movieapp.repository.UserRepository;
-import movieapp.service.*;
-import movieapp.web.dto.request.*;
-import movieapp.web.dto.response.*;
+
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.io.IOException;
 
 @RestController
 public class UserController {
@@ -178,6 +187,16 @@ public class UserController {
         Follow follow = followService.followUser(userId, request.followeeId());
         return ResponseEntity.status(HttpStatus.CREATED).body(new FollowResponse(follow));
     } // end of followUser()
+
+    @PostMapping("/users/avatar")
+    public ResponseEntity<UserResponse> uploadAvatar(
+            @AuthenticationPrincipal Integer userId,
+            @RequestParam("file") MultipartFile file)
+            throws NotFoundException, InvalidImageException, IOException {
+
+        User updated = userService.updateAvatar(userId, file);
+        return ResponseEntity.ok(new UserResponse(updated, true));
+    } // end of uploadAvatar()
 
     // ================ DELETE ================
 
